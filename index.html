@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Strudel Dashboard (Local)</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Strudel Dashboard (Local)</h1>
+      <div id="status">Stopped</div>
+
+      <section>
+        <label for="gain-slider">Gain</label>
+        <input id="gain-slider" type="range" min="0" max="1" step="0.01" value="0.8" />
+        <div id="gain-display">Gain: 0.80</div>
+      </section>
+
+      <section>
+        <div id="note-display">Playing Note: None</div>
+      </section>
+
+      <button id="start-btn">Start (user gesture)</button>
+
+      <p class="hint">UI updates are event-driven and polled once per second.</p>
+    </main>
+
+    <script type="module" src="/dashboard.js"></script>
+  </body>
+</html>
