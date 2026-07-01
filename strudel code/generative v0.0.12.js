@@ -1,0 +1,130 @@
+setcpm(120);
+
+// Mute toggles (true = playing, false = muted)
+let drumsOn = true;
+let chordsOn = true;
+let bassOn = true;
+let melodyOn = true;
+
+const kb = await midikeys(0)
+
+function randomChords(chordPool, length, silenceChance) {
+    let a = [];
+    for (let i = 0; i < length; i++) {
+        const durations = [1, 1, 2, 2, 4];
+        const dur = durations[Math.floor(Math.random() * durations.length)];
+        if (Math.random() < silenceChance) {
+            a.push([dur, "~"]);
+        } else {
+            const chordSym = chordPool[Math.floor(Math.random() * chordPool.length)];
+            a.push([dur, chordSym]);
+        }
+    }
+    return a;
+}
+
+const chordPool = [
+                    "Cm7", "Fm7", "Gm7", "Bb7", "EbM7", "AbM7", 
+                    //"Cm", "Fm", "Gm", "Bb", "EbM", "AbM"
+                    //"C", "F", "G", "Bb", "Eb", "Ab"
+                  ];
+const chordArray = randomChords(chordPool, 4, 0.0);
+
+function randomMelody(notes, length, silenceChance) {
+    let a = [];
+    for (let i = 0; i < length; i++) {
+        const durations = [0.5, 1, 1, 1, 2, 2];
+        const dur = durations[Math.floor(Math.random() * durations.length)];
+        if (Math.random() < silenceChance) {
+            a.push(silence.legato(dur));
+        } else {
+            const note = notes[Math.floor(Math.random() * notes.length)];
+            a.push(pure(note).legato(dur));
+        }
+    }
+    return a;
+}
+
+// 8 steps, 25% chance of silence per step
+const melodyArray = randomMelody([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], 16, 0.25);
+
+const bassArray = randomMelody([-7, -6, -5, -4, -3, -2, -1, 0, 1, 2], 8, 0.25);
+
+// ================= 1. INPUT CONTROL SETUP =================
+
+// Method A: Keyboard (Ctrl + Up/Down Arrow)
+let keyShift = 0;
+
+if (window._strudelKeyHandler) {
+  document.removeEventListener('keydown', window._strudelKeyHandler);
+}
+window._strudelKeyHandler = (e) => {
+  if (e.ctrlKey) {
+    if (e.keyCode === 38) { e.preventDefault(); keyShift++; }
+    else if (e.keyCode === 40) { e.preventDefault(); keyShift--; }
+  }
+};
+document.addEventListener('keydown', window._strudelKeyHandler);
+
+
+const kbTranspose = ref(() => keyShift);
+
+// SWITCH ACTIVE INPUT HERE: kbTranspose or padTranspose
+let activeTranspose = kbTranspose;
+
+// ================= 2. MUSIC TRACKS =================
+
+//kb().s("piano").lpf(80).lpe(6).lpd(0.1).room(2).delay(0.35)
+
+$: kb()
+  .s("piano")
+  .transpose(24)
+  .gain(0.9)
+  .release(1)
+  //.slow(2)
+
+
+// Drums
+_$: s("bd, [~ sd]*2, hh*2")
+  .bank("RolandTR909")
+  .gain(0.1)
+  .slow(4)
+
+_$: chord(seq(...chordArray))
+  .voicing()
+  .s("gm_acoustic_guitar_steel")
+  .transpose(activeTranspose)
+  .lpf(1100)
+  .room(0.4)
+  .gain(0.9)
+  .slow(16)
+  ._pianoroll({ labels: 1 })
+
+// Bassline
+_$: n(seq(...bassArray))  
+  .scale("C:minor")
+  .s("gm_bassoon")
+  .transpose(activeTranspose)
+  //.sub(24)  // two octaves lower
+  //.lpf(500)
+  //.decay(0.2)
+  //.sustain(0)
+  .gain(0.1)
+  //.punchcard({ labels: 1 })
+  .slow(8)
+  ._pianoroll({ labels: 1 })
+
+_$: n(seq(...melodyArray))
+  .scale("C:minor")
+  .s("piano")
+  .slow(8)
+  .transpose(activeTranspose)
+  .gain(0.5)
+  .delay(0.3)
+  ._pianoroll({ labels: 1 })
+
+//all(pianoroll({labels: 1}))
+//*/
+
+
+

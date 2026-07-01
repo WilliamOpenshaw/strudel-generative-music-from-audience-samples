@@ -100,60 +100,6 @@ You should only clone the uzu/strudel source code if your goal is to change how 
 
 If you just want to build something with Strudel, stick to npm. It keeps your build chain lightweight and your custom code completely decoupled.
 
-Are there other better npm approaches than vite?
-
-"Better" usually depends on what you are trying to optimize for. Vite is the current industry gold standard for local web development because it is incredibly fast and predictable, but there are a few alternatives that might suit your specific workflow better depending on your setup.
-
-1. The "Zero-Tooling" Route (Native Browser ES Modules)
-If "easiest" to you means avoiding terminal commands, package.json files, and local node_modules folders entirely, you don't actually need a build tool. Modern browsers handle JavaScript modules natively. You can pull Strudel straight from an npm CDN like esm.sh directly into your HTML file.
-
-index.html
-
-HTML
-<!DOCTYPE html>
-<html lang="en">
-<body>
-  <button id="play">Play Strudel</button>
-
-  <script type="module">
-    // Pull Strudel directly from an NPM CDN
-    import { initStrudel, sequence } from 'https://esm.sh/@strudel/web';
-    // Import functions from your separate local JavaScript file
-    import { helperFunction } from './my-functions.js';
-
-    initStrudel();
-
-    document.getElementById('play').onclick = () => {
-      const tune = sequence('c3', 'e3', 'g3', 'b3').s('saw');
-      helperFunction(tune).play();
-    };
-  </script>
-</body>
-</html>
-Why it’s better: There is nothing to install or configure. You can just open the HTML file using a basic local file server (like VS Code's Live Server extension or running python -m http.server in the directory).
-
-2. The Zero-Config Alternative: Parcel
-Vite is lightweight, but it still expects a specific project structure or a config file if your setup gets complex. If you want a bundler that requires absolutely zero configuration file gymnastics, Parcel is the closest thing to magic.
-
-You just create a standard index.html that points to your JavaScript file, and run it. Parcel analyzes the HTML, sees your JS imports, automatically runs the bundler, and hosts the local server.
-
-Bash
-npm install -D parcel
-npm install @strudel/web
-npx parcel index.html
-Why it’s better: It is truly configuration-agnostic. It figures out what your JavaScript files need on the fly without you ever touching a config script.
-
-3. The All-in-One Ecosystem: Bun
-If you want to bypass the entire traditional Node.js/NPM ecosystem because of its speed and bloat, Bun is a modern drop-in replacement for Node. It handles package management, bundling, and local serving natively inside a single, blazing-fast engine.  
-PullFlow
-
-Instead of chaining Node, NPM, and Vite together, you just use Bun for the whole pipeline:
-
-Bash
-bun add @strudel/web
-bun build ./main.js --outdir ./dist
-Why it’s better: Package installations and bundling take milliseconds rather than seconds. It eliminates a massive amount of tooling friction if you prefer a single unified tool over a sprawling JS toolchain.
-
 4. The Structured Way: Strudel Kit
 If you want an environment specifically pre-optimized for building standalone Strudel projects, the core development team maintains an official scaffolding tool called Strudel Kit (which runs on Astro and Vite under the hood).
 
@@ -167,172 +113,6 @@ npm run dev
 Why it’s better: It is tailored explicitly for the framework. It comes pre-configured to handle Strudel’s specific audio routing, web workers, and asset paths right out of the box, saving you from troubleshooting audio-context edge cases later on.
 
 What is the best method and approach to use if I want to add a visual dashboard in the future that shows what certain variables in strudel are set to at a given moment, like chord choices, playback speed, gain, and other effects?
-
-Building a visual dashboard to track real-time state in a generative music engine like Strudel is a fantastic project. Because Strudel is inherently functional and event-driven, the best approach is to decouple your data extraction from your visual rendering.
-
-You want a Push-to-Store, Poll-to-Render architecture. Instead of trying to read variables directly out of a running, opaque pattern loop, you intercept events as they are scheduled, dump their parameters into a central state object, and have your UI smoothly draw that state.
-
-Here is the blueprint for the cleanest, most performant way to build this.
-
-The Architecture Stack
-An efficient dashboard architecture breaks down into three distinct layers:
-
-[ Strudel Engine ] ──(Pushes Haps/Events)──> [ Event Interceptor ]
-                                                     │
-                                           (Updates current state)
-                                                     ▼
-[ UI Dashboard ] <──(Polls 60fps via rAF)─── [ Global State Store ]
-1. The Interception Layer (Data Extraction)
-In Strudel, patterns don't have "global variables" in the traditional sense; instead, they emit Haps (Events) over time. Each Hap is an object carrying a dictionary of its active properties—such as its current gain, speed, note, or custom chord strings.  
-strudel.cc
-
-To capture these, you hook into the engine's scheduling ticks. When you call .play() on a pattern, you can intercept the stream of haps right before they are translated into web audio signals.
-
-2. The State Dispatcher (The Bridge)
-Generative music code can trigger dozens of micro-events a second. If you try to force a web framework (like React or standard DOM elements) to re-render every single time a tiny note or millisecond-long effect triggers, your dashboard will choke and audio stuttering will occur.
-
-Instead, route the parameters from your intercepted event into a lightweight, mutable JavaScript object (or a fast state container like Zustand or Signals). This acts as a single source of truth for "what the engine is doing right now."
-
-3. The UI Rendering Layer (The Dashboard)
-Your visual dashboard reads from that state store. For smooth meters and dials, run a requestAnimationFrame loop. This loop checks your state store roughly 60 times a second and handles the visual updates. This guarantees your UI rendering stays perfectly synced with your monitor's refresh rate and never bogs down the audio engine.
-
-Conceptual Implementation
-When you implement this in your local JavaScript file, the setup will look structurally like this:
-
-JavaScript
-import { sequence, initStrudel } from '@strudel/web';
-
-// 1. The Global State Store (Single source of truth)
-const dashboardState = {
-  chord: 'None',
-  gain: 1.0,
-  speed: 1.0,
-  currentNote: ''
-};
-
-// 2. The Interceptor Function
-function updateDashboardData(hap) {
-  // Extract values out of the Strudel event context
-  dashboardState.gain = hap.getParam('gain') ?? 1.0;
-  dashboardState.speed = hap.getParam('speed') ?? 1.0;
-  dashboardState.currentNote = hap.getParam('note') ?? '';
-  
-  // If you passed custom chord labels or strings in your pattern
-  dashboardState.chord = hap.getParam('chordLabel') || 'N/A';
-}
-
-// 3. Hook it into your pattern pipeline
-const tune = sequence('c3', 'e3', 'g3')
-  .gain('1 0.5 0.8')
-  .speed('1 1.2 0.9')
-  // We tap into the event stream before or alongside playback
-  .onTrigger(updateDashboardData); 
-
-// 4. The UI Render Loop (Using Canvas or basic DOM updating)
-function renderDashboard() {
-  // Example: Update a text node or a visual meter canvas
-  document.getElementById('gain-meter').style.width = `${dashboardState.gain * 100}%`;
-  document.getElementById('chord-display').innerText = dashboardState.chord;
-
-  // Keep the loop spinning smoothly
-  requestAnimationFrame(renderDashboard);
-}
-
-// Start your visual loop and audio engine
-renderDashboard();
-Best Tools for the UI Component
-When you get around to building the actual visual interface, matching the right frontend tool to your dashboard goals makes a huge difference:
-
-For Canvas/Graphs (High Performance): If you want rolling graphs, waveforms, or moving dials, use a standard HTML5 Canvas or a lightweight wrapper library like PixiJS. Drawing straight to a canvas inside the requestAnimationFrame loop bypasses the DOM entirely, meaning zero performance tax on your audio.
-
-For Controls & Text Boxes (Easy UI): If you prefer standard sliders, readout values, and text blocks, Svelte or SolidJS are exceptional choices. Because they use direct reactivity rather than a Virtual DOM (like React), they can handle rapid state fluctuations with minimal overhead.
-
-The "No-Framework" Option: Plain vanilla JavaScript targeting specific element IDs (like the code snippet above) works beautifully for simple layouts and keeps your overall project bundle completely lightweight.
-
-Are you thinking of a purely informational dashboard that just monitors the playback, or do you eventually want bidirectional controls where clicking the dashboard tweaks the running Strudel code in real time?
-
-I would like to have that. I will also use a midi controller.
-
-
-
-Which npm approach is best for this?
-
-Should I use vite, bun, the strudel dev kit, or another method?
-
-For a bidirectional dashboard—where UI widgets and a hardware MIDI controller talk to each other and live-update a running Strudel engine—the absolute best setup is Vite paired with a highly reactive, compiled frontend framework (like Svelte or SolidJS).
-
-Here is how the options stack up for this specific goal, why this stack wins, and how the architecture handles the chaos of live MIDI signals.
-
-Tooling Breakdown: Vite vs. Bun vs. Strudel Kit
-1. Why Vite Wins
-Vite gives you total control over the DOM and the browser's native Web MIDI API. Because you are building a custom, highly interactive UI sandbox, you need zero restrictions on how you manage state and render components. Vite provides a blank, incredibly fast canvas with an massive ecosystem of plugins.
-
-2. Why Strudel Kit is Too Rigid
-Strudel Kit is fantastic for scaffolding standard interactive music pages or presentations quickly. However, it comes with pre-configured routing and opinions on how the interface should look and behave. Once you start trying to wire up complex, two-way hardware controller mapping alongside a custom layout, fighting the framework's built-in structure will cause more friction than it's worth.
-
-3. Bun is a Companion, Not a Competitor
-It's worth noting that Bun and Vite are not mutually exclusive. Bun is a runtime and package manager (a faster alternative to Node/npm), while Vite is a frontend build tool. You can absolutely use Bun as your ultra-fast package manager to install your dependencies and run a Vite development server:
-
-Bash
-bun add @strudel/web svelte
-bun x --bun vite
-The Dream Combo: Vite + Svelte (or SolidJS)
-When your MIDI controller starts sending continuous controller (CC) data—like spinning a knob or moving a slider—it floods the browser with dozens of messages per second.
-
-If you use a traditional Virtual DOM framework like React, that deluge of state changes can trigger massive re-rendering overhead, which risks introducing micro-stutters into your audio. Svelte or SolidJS are ideal here because they compile down to direct, surgical DOM updates. They can handle high-frequency MIDI data effortlessly without wasting CPU cycles.
-
-How to Structure the Bidirectional Flow
-To make this work seamlessly, your state must act as the absolute source of truth. The UI dashboard and the MIDI controller should modify the exact same state container, and Strudel should dynamically read from that container on every cycle.
-
-Here is how you can implement this conceptually in a local Vite project:
-
-1. The Central Reactive Store
-Create a shared state object that holds your performance variables.
-
-JavaScript
-import { writable } from 'svelte/store';
-
-export const performanceState = writable({
-  gain: 0.8,
-  playbackSpeed: 1.0,
-  chordChoice: 'minor'
-});
-2. Feeding Dynamic Data into Strudel
-Strudel patterns natively accept anonymous JavaScript functions as parameters. Instead of passing a static value like .gain(0.8), you can pass a function that reads from your state store. This allows the running pattern to pull the newest value live on every single beat without needing to restart the loop.
-
-JavaScript
-import { sequence } from '@strudel/web';
-import { performanceState } from './store.js';
-
-let currentState;
-performanceState.subscribe(val => { currentState = val; });
-
-// Strudel dynamically evaluates the arrow functions on playback
-export const activePattern = sequence('c3', 'e3', 'g3')
-  .gain(() => currentState.gain)
-  .speed(() => currentState.playbackSpeed);
-3. Connecting the Hardware (Web MIDI API)
-You can use standard browser code to listen to your MIDI controller. When a knob turns, it updates the central store, instantly updating both your visual dashboard UI and the audio engine simultaneously.
-
-JavaScript
-navigator.requestMIDIAccess().then(midi => {
-  const inputs = midi.inputs.values();
-  for (let input of inputs) {
-    input.onmidimessage = (message) => {
-      const [status, data1, data2] = message.data;
-      
-      // Example: MIDI CC message on Knob #10 handles Gain
-      if (status === 176 && data1 === 10) {
-        const normalizedGain = data2 / 127; // Convert 0-127 to 0.0-1.0
-        performanceState.update(state => ({ ...state, gain: normalizedGain }));
-      }
-    };
-  }
-});
-Recommended Next Step
-Start by initializing a clean Vite + Svelte template. It sets up an incredibly lightweight dashboard structure, gives you an isolated environment to write your MIDI mapping scripts, and keeps your project clean and decoupled from Strudel's internal monorepo overhead.
-
-What physical MIDI controller are you planning to map to this dashboard setup?
 
 I am fine if the display only updates after user input, or once a second, whichever is slower. I do not need it to update too fast.
 
@@ -401,4 +181,168 @@ This approach keeps your development environment clean, completely predictable, 
 
 Are you planning to run this dashboard purely as a local tool for your own jam sessions, or do you eventually want to host it on the web for others to interact with?
 
+Features list and order:
+
+Based on General Idea.txt, generative v0.0.12.js, and the current dashboard.js prototype.
+Build in this order — each phase should be working before moving on.
+
+────────────────────────────────────────────────────────────
+PHASE 1 — Foundation (mostly done, finish wiring)
+────────────────────────────────────────────────────────────
+Packages: @strudel/web (installed), vite (installed)
+
+1. Local Vite dev environment with user-gesture audio start
+   - initStrudel(), evaluate(), hush()
+   - Status: dashboard.js + index.html exist
+
+2. Shared performance state object (src/state.js)
+   - Single source of truth for gain, speed, cpm, transpose, layer mutes
+   - Dashboard writes on user input; Strudel reads via evaluate() or refs
+   - 1 Hz poll for automated readouts (chord, note, status)
+
+3. Dashboard operator panel — basic transport + readouts
+   - Start / stop, gain slider, status line
+   - Display: cpm, speed, transpose, layer mute states
+   - Status: partial — extend index.html + dashboard.js
+
+────────────────────────────────────────────────────────────
+PHASE 2 — Generative engine (port from REPL script)
+────────────────────────────────────────────────────────────
+Packages: @strudel/web (includes @strudel/core, mini, tonal, transpiler, webaudio, draw)
+
+4. Port generative v0.0.12.js into the Vite project
+   - Move REPL-only syntax ($:, ref, midikeys) into evaluate()-friendly code
+   - Keep randomChords / randomMelody helpers; store results in state for dashboard
+   - Load from src/patterns/generative.js (or evaluate a .strudel file on Start)
+
+5. Four-layer arrangement
+   - Drums: s("bd, [~ sd]*2, hh*2").bank("RolandTR909")
+   - Chords: random chord pool → voicing() → slow(16)
+   - Bass: scale("C:minor") melody from randomMelody
+   - Lead/melody: scale("C:minor") with silence probability
+   - Per-layer mute toggles (drumsOn, chordsOn, bassOn, melodyOn)
+
+6. Tempo and playback controls on dashboard
+   - setcpm slider (maps to state.cpm)
+   - speed slider per arrangement or global .slow() multiplier
+   - transpose control (replaces Ctrl+Up/Down from generative script)
+
+7. “Regenerate” controls
+   - Buttons to re-roll chordArray, melodyArray, bassArray without stopping audio
+   - Show current pool / seed on dashboard after each roll
+
+────────────────────────────────────────────────────────────
+PHASE 3 — Audience samples as instruments
+────────────────────────────────────────────────────────────
+Packages: @strudel/sampler (dev CLI via npx, not runtime), samples() from @strudel/webaudio
+
+8. Sample folder structure + catalog
+   - public/samples/ with audience recordings (wav/mp3)
+   - npx @strudel/sampler --json > public/strudel.json
+   - Document naming: role (lead/bass/chord/drum) + pitch if pitched
+
+9. Load and register audience samples
+   - initStrudel({ prebake: () => samples('/strudel.json') }) or samples({ ... })
+   - Pitched mapping for lead and bass (note ranges per sample file)
+
+10. Swap GM synths for audience samples
+    - Chords: .s("audience_chord") or sliced chord stabs
+    - Bass: .s("audience_bass") on scale degrees
+    - Lead: .s("audience_lead") on melodyArray
+    - Keep TR909 (or similar) drums until/unless audience percussion is added
+
+11. Sample management UI (operator dashboard)
+    - List loaded samples, which layer uses which bank
+    - Gain per layer; optional lpf / room / delay per role
+
+────────────────────────────────────────────────────────────
+PHASE 4 — MIDI control (two m-vave SMC-PAD pads)
+────────────────────────────────────────────────────────────
+Packages: @strudel/midi (add explicitly — provides midikeys, midin, midi output)
+
+12. Web MIDI device discovery + assignment
+    - List inputs; bind pad 1 and pad 2 by name or index
+    - Browser permission flow on first Start
+    - Chrome/Edge recommended (Firefox Web MIDI is unreliable)
+
+13. Pad → performance mapping (improv players)
+    - Pads: mute toggles, regenerate layer, scene presets
+    - CC knobs: gain, speed, cpm, transpose, lpf, delay, room
+    - Use midin('M-Vave SMC-PAD') for CC → state or pattern params
+    - Optional: midikeys() for live note overlay on top of generative bed
+
+14. Dashboard reflects MIDI changes
+    - Update sliders/readouts when pads move (event-driven, not only 1 Hz poll)
+    - Show which controller last touched each parameter
+
+────────────────────────────────────────────────────────────
+PHASE 5 — Strudel REPL / visuals (live coding + pianoroll)
+────────────────────────────────────────────────────────────
+Packages: @strudel/repl OR @strudel/embed (pick one), @strudel/draw (transitive via webaudio)
+
+15. Embed Strudel editor alongside operator dashboard
+    - @strudel/repl web component for full REPL, or @strudel/embed for lighter embed
+    - Same audio context / shared initStrudel instance as dashboard
+    - Lets you live-code tweaks mid-show
+
+16. Pianoroll / visual feedback
+    - ._pianoroll({ labels: 1 }) on chord, bass, melody layers (as in v0.0.12)
+    - Optional: all(pianoroll) or punchcard for combined view
+    - @strudel/draw handles canvas; bundled through @strudel/webaudio
+
+17. Optional soundfont fallback
+    - @strudel/soundfonts if you want GM instruments before audience samples are ready
+    - Not required once audience samples replace gm_* names
+
+────────────────────────────────────────────────────────────
+PHASE 6 — Audience phone dashboard (~4 buttons)
+────────────────────────────────────────────────────────────
+Packages: none required from Strudel; add a tiny realtime channel (e.g. ws via vite plugin, or separate Node host)
+
+18. Second, minimal public UI (mobile-friendly)
+    - 4 large buttons — e.g. “More energy”, “Calmer”, “New chords”, “Weird”
+    - Maps to safe, bounded changes (cpm ±, regenerate one layer, toggle effect)
+
+19. Realtime bridge audience → operator engine
+    - WebSocket or SSE from phone page to main show machine
+    - Operator dashboard can veto/lock audience controls
+
+20. Show-safe guardrails
+    - Rate-limit audience input; clamp parameter ranges
+    - Visual confirmation on operator dashboard when audience acts
+
+────────────────────────────────────────────────────────────
+Package summary (install when reaching each phase)
+────────────────────────────────────────────────────────────
+Already installed:
+  @strudel/web, vite
+
+Add next:
+  @strudel/midi          — Phase 4 (MIDI in/out; midikeys, midin)
+  @strudel/repl          — Phase 5 option A (full REPL + editor UI)
+  @strudel/embed         — Phase 5 option B (lighter embedded editor)
+
+Bundled transitively via @strudel/web (no separate install unless importing directly):
+  @strudel/core, @strudel/mini, @strudel/tonal, @strudel/transpiler,
+  @strudel/webaudio, @strudel/draw
+
+Dev / tooling (not npm runtime deps):
+  npx @strudel/sampler   — Phase 3 (build strudel.json from sample folder)
+
+Optional later:
+  @strudel/soundfonts    — GM instruments during development
+  @strudel/osc           — only if routing to external synths via OSC
+
+Pin all @strudel/* to the same version (e.g. 1.3.0) to avoid duplicate @strudel/core.
+
+────────────────────────────────────────────────────────────
+Architecture notes
+────────────────────────────────────────────────────────────
+- Do NOT fork uzu/strudel unless changing Strudel itself — use npm packages.
+- generative v0.0.12.js was written for strudel.cc REPL ($:, ref, midikeys).
+  The Vite dashboard should own state in JS; pass values into evaluate() strings
+  or use midin/cc patterns once @strudel/midi is registered in initStrudel.
+- AGPLv3: publishing this project requires source availability — keep repo public
+  or provide source to users if you deploy publicly.
+- Two SMC-PAD units: treat as pad A (structure: mutes, regen) and pad B (FX/tempo).
 
