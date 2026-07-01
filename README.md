@@ -154,6 +154,19 @@ The status indicator at the top changes color:
 - **Green** — Playing (audio is active)
 - **Red** — Error (something went wrong — check the browser console)
 
+## MIDI Control
+
+The dashboard automatically detects connected Web MIDI devices (like the M-VAVE SMC-PAD) when you open the page. A status indicator in the top right will show you how many devices are connected.
+
+### Customizing MIDI Mapping
+Since MIDI controllers send different Control Change (CC) and Note numbers, you may need to map your specific controller to the dashboard parameters.
+
+1. Connect your controller and open the dashboard.
+2. Open your browser's Developer Console (press `F12` and click **Console**).
+3. Twist a knob or press a pad. You will see a log like: `[MIDI] Unmapped CC: 1 (Value: 64)` or `[MIDI] Unmapped Note On: 36`.
+4. Open `src/midi/midi.js` in your code editor.
+5. Update the `CC_MAP` and `PAD_MAP` objects at the top of the file using the numbers you saw in the console. The changes will hot-reload instantly.
+
 ---
 
 ## Stopping the Dev Server
@@ -252,7 +265,7 @@ The full build order (20 features across 6 phases) is documented in `planning no
 | 1. Foundation | Vite + dashboard + shared state | ✅ Complete |
 | 2. Generative engine | Four-layer arrangement with controls | ✅ Complete |
 | 3. Audience samples | Load and map recordings to lead/bass/chords | ✅ Complete |
-| 4. MIDI | Two m-vave SMC-PAD controllers for improv players | 🔲 Not started |
+| 4. MIDI | Two m-vave SMC-PAD controllers for improv players | ✅ Complete |
 | 5. Strudel REPL embed | Pianoroll + live coding alongside dashboard | 🔲 Not started |
 | 6. Audience phone UI | ~4 mobile buttons with guardrails | 🔲 Not started |
 

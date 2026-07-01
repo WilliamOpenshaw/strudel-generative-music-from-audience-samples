@@ -2,6 +2,7 @@ import { initStrudel, evaluate, hush, samples } from '@strudel/web';
 import { state, setStatus } from './src/state.js';
 import { createArrangement, buildStrudelCode } from './src/patterns/generative.js';
 import { loadCatalog, applyCatalogToState, sampleAvailability } from './src/samples/catalog.js';
+import { initMIDI } from './src/midi/midi.js';
 
 let started = false;
 let strudelReady = false;
@@ -37,33 +38,70 @@ function applyStatusClass(text) {
   else if (text === 'Loading…') el.classList.add('loading');
 }
 
-/* ─── Bind slider/toggle helpers ───────────────────── */
+/* ─── Parameter and UI Sync ────────────────────────── */
+let restartTimeout = null;
+async function debouncedRestart() {
+  if (!started) return;
+  if (restartTimeout) clearTimeout(restartTimeout);
+  restartTimeout = setTimeout(async () => {
+    await restartPattern();
+  }, 150);
+}
+
+const uiUpdaters = {};
+
+function updateParameter(key, value) {
+  state[key] = value;
+  if (uiUpdaters[key]) {
+    uiUpdaters[key](value);
+  }
+  debouncedRestart();
+}
+
+function handleAction(type, key) {
+  if (type === 'toggle') {
+    state[key] = !state[key];
+    if (uiUpdaters[key]) uiUpdaters[key](state[key]);
+    debouncedRestart();
+  } else if (type === 'regen') {
+    if (key === 'all') regenerate({ regenChords: true, regenMelody: true, regenBass: true });
+    if (key === 'chords') regenerate({ regenChords: true, regenMelody: false, regenBass: false });
+    if (key === 'bass') regenerate({ regenChords: false, regenMelody: false, regenBass: true });
+    if (key === 'melody') regenerate({ regenChords: false, regenMelody: true, regenBass: false });
+  }
+}
+
 function bindSlider(id, key, formatter, { integer = false } = {}) {
   const slider = document.getElementById(id);
-  if (!slider) return;
-  slider.value = state[key];
-  slider.addEventListener('input', async (e) => {
-    state[key] = integer ? parseInt(e.target.value, 10) : parseFloat(e.target.value);
-    const display = document.getElementById(`${id}-display`);
-    if (display) display.innerText = formatter(state[key]);
-    if (started) await restartPattern();
-  });
   const display = document.getElementById(`${id}-display`);
-  if (display) display.innerText = formatter(state[key]);
+  if (!slider) return;
+  
+  uiUpdaters[key] = (val) => {
+    slider.value = val;
+    if (display) display.innerText = formatter(val);
+  };
+  
+  uiUpdaters[key](state[key]); // init
+  
+  slider.addEventListener('input', (e) => {
+    const val = integer ? parseInt(e.target.value, 10) : parseFloat(e.target.value);
+    updateParameter(key, val);
+  });
 }
 
 function bindToggle(id, key) {
   const btn = document.getElementById(id);
   if (!btn) return;
-  const sync = () => {
-    btn.setAttribute('aria-pressed', state[key] ? 'true' : 'false');
-    btn.textContent = `${btn.dataset.label}: ${state[key] ? 'on' : 'off'}`;
+  
+  uiUpdaters[key] = (val) => {
+    btn.setAttribute('aria-pressed', val ? 'true' : 'false');
+    btn.textContent = `${btn.dataset.label}: ${val ? 'on' : 'off'}`;
   };
-  sync();
-  btn.addEventListener('click', async () => {
-    state[key] = !state[key];
-    sync();
-    if (started) await restartPattern();
+  
+  uiUpdaters[key](state[key]); // init
+  
+  btn.addEventListener('click', () => {
+    handleAction('toggle', key);
   });
 }
 
@@ -149,6 +187,16 @@ function bindTransposeControls() {
 /* ─── Init ─────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => {
   createArrangement(state);
+
+  // Initialize MIDI
+  initMIDI({
+    onParameterChange: updateParameter,
+    onAction: handleAction,
+    onStatusUpdate: (text) => {
+      const el = document.getElementById('midi-status-display');
+      if (el) el.innerText = text;
+    }
+  });
 
   // Sliders
   bindSlider('gain-slider', 'gain', (v) => `Gain: ${v.toFixed(2)}`);
