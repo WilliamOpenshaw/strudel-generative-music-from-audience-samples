@@ -15,6 +15,17 @@ async function ensureStrudel() {
   strudelReady = true;
 }
 
+/* ─── Status badge helper ──────────────────────────── */
+function applyStatusClass(text) {
+  const el = document.getElementById('status-display');
+  if (!el) return;
+  el.className = ''; // reset
+  if (text === 'Playing') el.classList.add('playing');
+  else if (text.startsWith('Error')) el.classList.add('error');
+  else if (text === 'Loading…') el.classList.add('loading');
+}
+
+/* ─── Bind slider/toggle helpers ───────────────────── */
 function bindSlider(id, key, formatter, { integer = false } = {}) {
   const slider = document.getElementById(id);
   if (!slider) return;
@@ -44,6 +55,7 @@ function bindToggle(id, key) {
   });
 }
 
+/* ─── Dashboard readout updater ────────────────────── */
 function updateReadouts() {
   const map = {
     'status-display': () => state.status,
@@ -59,8 +71,10 @@ function updateReadouts() {
     const el = document.getElementById(id);
     if (el) el.innerText = fn();
   }
+  applyStatusClass(state.status);
 }
 
+/* ─── Pattern lifecycle ────────────────────────────── */
 async function playPattern() {
   const code = buildStrudelCode(state);
   console.debug('Playing Strudel code:\n', code);
@@ -86,6 +100,7 @@ async function regenerate(options) {
   if (started) await restartPattern();
 }
 
+/* ─── Transpose (buttons + keyboard shortcut) ──────── */
 function bindTransposeControls() {
   const down = document.getElementById('transpose-down');
   const up = document.getElementById('transpose-up');
@@ -113,20 +128,25 @@ function bindTransposeControls() {
   document.addEventListener('keydown', window._strudelKeyHandler);
 }
 
+/* ─── Init ─────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => {
   createArrangement(state);
 
+  // Sliders
   bindSlider('gain-slider', 'gain', (v) => `Gain: ${v.toFixed(2)}`);
   bindSlider('speed-slider', 'speed', (v) => `Speed: ${v.toFixed(2)}`);
   bindSlider('cpm-slider', 'cpm', (v) => `CPM: ${v}`, { integer: true });
 
+  // Layer mutes
   bindToggle('toggle-drums', 'drumsOn');
   bindToggle('toggle-chords', 'chordsOn');
   bindToggle('toggle-bass', 'bassOn');
   bindToggle('toggle-melody', 'melodyOn');
 
+  // Transpose
   bindTransposeControls();
 
+  // Regenerate buttons
   document.getElementById('regen-all')?.addEventListener('click', () =>
     regenerate({ regenChords: true, regenMelody: true, regenBass: true }),
   );
@@ -140,6 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
     regenerate({ regenChords: false, regenMelody: false, regenBass: true }),
   );
 
+  // Transport: Start
   const startBtn = document.getElementById('start-btn');
   if (startBtn) {
     startBtn.addEventListener('click', async () => {
@@ -163,6 +184,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Transport: Stop
   const stopBtn = document.getElementById('stop-btn');
   if (stopBtn) {
     stopBtn.addEventListener('click', async () => {
@@ -174,6 +196,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Initial readout + 1 Hz poll
   updateReadouts();
   setInterval(updateReadouts, 1000);
 });

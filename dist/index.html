@@ -3,61 +3,75 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Strudel Dashboard (Local)</title>
-    <script type="module" crossorigin src="/assets/index-hkujoi2J.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-BDMoblwI.css">
+    <meta name="description" content="Operator dashboard for Strudel generative music — live transport, layer control, and arrangement regeneration." />
+    <title>Strudel Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <script type="module" crossorigin src="/assets/index-DbsyQOnD.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-4csKp4KK.css">
   </head>
   <body>
     <main>
-      <h1>Strudel Dashboard (Local)</h1>
-      <div id="status-display">Stopped</div>
+      <header>
+        <h1>Strudel Dashboard</h1>
+        <div id="status-display">Stopped</div>
+      </header>
 
-      <section class="controls">
-        <button id="start-btn">Start</button>
-        <button id="stop-btn">Stop</button>
+      <!-- Transport -->
+      <section class="controls" aria-label="Transport">
+        <button id="start-btn" type="button">▶ Start</button>
+        <button id="stop-btn" type="button">■ Stop</button>
       </section>
 
-      <section>
+      <!-- Gain -->
+      <section aria-label="Gain">
         <label for="gain-slider">Gain</label>
         <input id="gain-slider" type="range" min="0" max="1" step="0.01" value="0.8" />
         <div id="gain-slider-display">Gain: 0.80</div>
       </section>
 
-      <section>
+      <!-- Speed -->
+      <section aria-label="Speed">
         <label for="speed-slider">Speed</label>
         <input id="speed-slider" type="range" min="0.25" max="2" step="0.05" value="1" />
         <div id="speed-slider-display">Speed: 1.00</div>
       </section>
 
-      <section>
+      <!-- CPM -->
+      <section aria-label="Cycles per minute">
         <label for="cpm-slider">CPM</label>
         <input id="cpm-slider" type="range" min="60" max="180" step="1" value="120" />
         <div id="cpm-slider-display">CPM: 120</div>
       </section>
 
-      <section class="transpose">
+      <!-- Transpose -->
+      <section class="transpose" aria-label="Transpose">
         <span>Transpose</span>
-        <button id="transpose-down" type="button">−</button>
+        <button id="transpose-down" type="button" aria-label="Transpose down">−</button>
         <div id="transpose-display">Transpose: 0</div>
-        <button id="transpose-up" type="button">+</button>
-        <span class="hint-inline">Ctrl+↑ / Ctrl+↓</span>
+        <button id="transpose-up" type="button" aria-label="Transpose up">+</button>
+        <span class="hint-inline">Ctrl + ↑ / ↓</span>
       </section>
 
-      <section class="layer-toggles">
+      <!-- Layer toggles -->
+      <section class="layer-toggles" aria-label="Layer mutes">
         <button id="toggle-drums" type="button" data-label="Drums" aria-pressed="true">Drums: on</button>
         <button id="toggle-chords" type="button" data-label="Chords" aria-pressed="true">Chords: on</button>
         <button id="toggle-bass" type="button" data-label="Bass" aria-pressed="true">Bass: on</button>
         <button id="toggle-melody" type="button" data-label="Melody" aria-pressed="true">Melody: on</button>
       </section>
 
-      <section class="regen">
-        <button id="regen-all" type="button">Regenerate all</button>
+      <!-- Regenerate -->
+      <section class="regen" aria-label="Regenerate arrangement">
+        <button id="regen-all" type="button">↻ Regenerate all</button>
         <button id="regen-chords" type="button">New chords</button>
         <button id="regen-melody" type="button">New melody</button>
         <button id="regen-bass" type="button">New bass</button>
       </section>
 
-      <section class="readouts">
+      <!-- Live readouts -->
+      <section class="readouts" aria-label="Live readouts">
         <div id="cpm-display">CPM: 120</div>
         <div id="speed-display">Speed: 1.00</div>
         <div id="layers-display">Layers — drums:on chords:on bass:on melody:on</div>
@@ -65,8 +79,8 @@
         <div id="note-display">Last note: —</div>
       </section>
 
-      <p class="hint">Four-layer generative arrangement (drums, chords, bass, melody). UI polls once per second.</p>
+      <p class="hint">Four-layer generative arrangement (drums · chords · bass · melody). Readouts update once per second.</p>
     </main>
-
+
   </body>
 </html>
