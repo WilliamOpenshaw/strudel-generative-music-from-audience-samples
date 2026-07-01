@@ -1,4 +1,6 @@
 import { initStrudel, evaluate, hush, samples } from '@strudel/web';
+import '@strudel/repl';
+import { registerSoundfonts } from '@strudel/soundfonts';
 import { state, setStatus } from './src/state.js';
 import { createArrangement, buildStrudelCode } from './src/patterns/generative.js';
 import { loadCatalog, applyCatalogToState, sampleAvailability } from './src/samples/catalog.js';
@@ -11,6 +13,7 @@ async function ensureStrudel() {
   if (strudelReady) return;
   await initStrudel({
     prebake: async () => {
+      await registerSoundfonts();
       await samples('github:tidalcycles/dirt-samples');
       const availability = await loadCatalog();
       applyCatalogToState(state);
@@ -134,14 +137,27 @@ function updateReadouts() {
 async function playPattern() {
   const code = buildStrudelCode(state);
   console.debug('Playing Strudel code:\n', code);
-  await evaluate(code);
+  
+  const repl = document.querySelector('strudel-editor');
+  if (repl && repl.editor) {
+    repl.editor.setCode(code);
+    repl.editor.evaluate();
+  } else {
+    // Fallback if component isn't ready
+    await evaluate(code);
+  }
 }
 
 async function stopPattern() {
   try {
-    hush();
+    const repl = document.querySelector('strudel-editor');
+    if (repl && repl.editor) {
+      repl.editor.stop();
+    } else {
+      hush();
+    }
   } catch (err) {
-    console.warn('hush() failed:', err);
+    console.warn('Stop failed:', err);
   }
 }
 

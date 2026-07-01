@@ -11,7 +11,8 @@
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
-    <main>
+    <div class="app-layout">
+      <main>
       <header>
         <h1>Strudel Dashboard</h1>
         <div class="header-badges">
@@ -139,7 +140,12 @@
       </section>
 
       <p class="hint">Four-layer generative arrangement (drums · chords · bass · melody). Readouts update once per second.</p>
-    </main>
+      </main>
+      
+      <aside class="editor-panel" aria-label="Strudel Live Code Editor">
+        <strudel-editor></strudel-editor>
+      </aside>
+    </div>
 
     <script type="module" src="/dashboard.js"></script>
   </body>

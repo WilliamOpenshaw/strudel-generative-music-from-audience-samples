@@ -40,18 +40,44 @@ body {
   font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, Roboto, 'Helvetica Neue', Arial, sans-serif;
   background: var(--bg-primary);
   color: var(--text-primary);
-  max-width: 780px;
-  margin: 0 auto;
+  margin: 0;
   padding: 2rem 1.5rem;
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
 }
 
-/* ─── Layout ───────────────────────────────────────── */
+.app-layout {
+  display: flex;
+  gap: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  align-items: flex-start;
+}
+
 main {
+  flex: 1;
+  max-width: 780px;
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+}
+
+.editor-panel {
+  flex: 1;
+  min-width: 400px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  height: calc(100vh - 4rem);
+  position: sticky;
+  top: 2rem;
+}
+
+strudel-editor {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 h1 {

@@ -92,19 +92,19 @@ export function buildStrudelCode(state) {
   if (state.chordsOn) {
     const chordBank = state.sampleBanks?.chord || 'sawtooth';
     parts.push(
-      `chord(seq(${formatChordSeq(chordArray)})).voicing().s("${chordBank}").transpose(${t}).lpf(${state.chordsLpf}).room(${state.chordsRoom}).gain(${state.chordsGain}).slow(16)`,
+      `chord(seq(${formatChordSeq(chordArray)})).voicing().s("${chordBank}").transpose(${t}).lpf(${state.chordsLpf}).room(${state.chordsRoom}).gain(${state.chordsGain}).slow(16)._pianoroll({ labels: 1 })`,
     );
   }
   if (state.bassOn) {
     const bassBank = state.sampleBanks?.bass || 'sawtooth';
     parts.push(
-      `n(seq(${formatMelodySeq(bassArray)})).scale("C:minor").s("${bassBank}").transpose(${t}).lpf(${state.bassLpf}).gain(${state.bassGain}).slow(8)`,
+      `n(seq(${formatMelodySeq(bassArray)})).scale("C:minor").s("${bassBank}").transpose(${t}).lpf(${state.bassLpf}).gain(${state.bassGain}).slow(8)._pianoroll({ labels: 1 })`,
     );
   }
   if (state.melodyOn) {
     const leadBank = state.sampleBanks?.lead || 'triangle';
     parts.push(
-      `n(seq(${formatMelodySeq(melodyArray)})).scale("C:minor").s("${leadBank}").slow(8).transpose(${t}).gain(${state.melodyGain}).delay(${state.melodyDelay})`,
+      `n(seq(${formatMelodySeq(melodyArray)})).scale("C:minor").s("${leadBank}").slow(8).transpose(${t}).gain(${state.melodyGain}).delay(${state.melodyDelay})._pianoroll({ labels: 1 })`,
     );
   }
 
