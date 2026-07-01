@@ -62,8 +62,16 @@ h1 {
   margin-bottom: 0.25rem;
 }
 
+.header-badges {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
 /* ─── Status badge ─────────────────────────────────── */
-#status-display {
+#status-display,
+#midi-status-display {
   display: inline-block;
   font-weight: 600;
   font-size: 0.85rem;
@@ -281,6 +289,15 @@ section > div[id$='-display'] {
 }
 
 /* ─── Readouts panel (glass card) ──────────────────── */
+
+.controls,
+.layer-toggles,
+.regen,
+.layer-gains,
+.effects {
+  gap: 0.75rem;
+}
+
 .readouts {
   flex-direction: column;
   align-items: flex-start;
@@ -303,6 +320,26 @@ section > div[id$='-display'] {
   content: '›  ';
   color: var(--accent);
   font-weight: 700;
+}
+
+.bank-status-group {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border-accent);
+  width: 100%;
+}
+
+/* Screen reader only for labels */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
 }
 
 /* ─── Hint text ────────────────────────────────────── */

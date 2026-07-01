@@ -1,6 +1,7 @@
 import { initStrudel, evaluate, hush, samples } from '@strudel/web';
 import { state, setStatus } from './src/state.js';
 import { createArrangement, buildStrudelCode } from './src/patterns/generative.js';
+import { loadCatalog, applyCatalogToState, sampleAvailability } from './src/samples/catalog.js';
 
 let started = false;
 let strudelReady = false;
@@ -10,6 +11,17 @@ async function ensureStrudel() {
   await initStrudel({
     prebake: async () => {
       await samples('github:tidalcycles/dirt-samples');
+      const availability = await loadCatalog();
+      applyCatalogToState(state);
+      
+      // If any audience samples exist, load them from the local server
+      if (availability.lead || availability.bass || availability.chord || availability.drum) {
+        try {
+          await samples(window.location.origin);
+        } catch (err) {
+          console.warn('[dashboard] Failed to load local samples:', err);
+        }
+      }
     },
   });
   strudelReady = true;
@@ -66,6 +78,12 @@ function updateReadouts() {
       `Layers — drums:${state.drumsOn ? 'on' : 'off'} chords:${state.chordsOn ? 'on' : 'off'} bass:${state.bassOn ? 'on' : 'off'} melody:${state.melodyOn ? 'on' : 'off'}`,
     'note-display': () => `Last note: ${state.currentNote}`,
     'chord-display': () => `Current chord: ${state.currentChord}`,
+    
+    // Sample bank status
+    'bank-lead-display': () => `Lead Bank: ${state.sampleBanks.lead || 'Synth (triangle)'}`,
+    'bank-bass-display': () => `Bass Bank: ${state.sampleBanks.bass || 'Synth (sawtooth)'}`,
+    'bank-chord-display': () => `Chord Bank: ${state.sampleBanks.chord || 'Synth (sawtooth)'}`,
+    'bank-drum-display': () => `Drum Bank: ${state.sampleBanks.drum || 'Default (TR909)'}`,
   };
   for (const [id, fn] of Object.entries(map)) {
     const el = document.getElementById(id);
@@ -136,6 +154,18 @@ document.addEventListener('DOMContentLoaded', () => {
   bindSlider('gain-slider', 'gain', (v) => `Gain: ${v.toFixed(2)}`);
   bindSlider('speed-slider', 'speed', (v) => `Speed: ${v.toFixed(2)}`);
   bindSlider('cpm-slider', 'cpm', (v) => `CPM: ${v}`, { integer: true });
+
+  // Per-layer gains
+  bindSlider('drums-gain-slider', 'drumsGain', (v) => `Drums: ${v.toFixed(2)}`);
+  bindSlider('chords-gain-slider', 'chordsGain', (v) => `Chords: ${v.toFixed(2)}`);
+  bindSlider('bass-gain-slider', 'bassGain', (v) => `Bass: ${v.toFixed(2)}`);
+  bindSlider('melody-gain-slider', 'melodyGain', (v) => `Lead: ${v.toFixed(2)}`);
+
+  // Effects
+  bindSlider('chords-lpf-slider', 'chordsLpf', (v) => `Chords LPF: ${v} Hz`, { integer: true });
+  bindSlider('chords-room-slider', 'chordsRoom', (v) => `Chords Room: ${v.toFixed(2)}`);
+  bindSlider('bass-lpf-slider', 'bassLpf', (v) => `Bass LPF: ${v} Hz`, { integer: true });
+  bindSlider('melody-delay-slider', 'melodyDelay', (v) => `Lead Delay: ${v.toFixed(2)}`);
 
   // Layer mutes
   bindToggle('toggle-drums', 'drumsOn');

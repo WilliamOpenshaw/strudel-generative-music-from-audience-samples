@@ -8,8 +8,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <script type="module" crossorigin src="/assets/index-DbsyQOnD.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-4csKp4KK.css">
+    <script type="module" crossorigin src="/assets/index-CsRW0b2_.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-Dm3772da.css">
   </head>
   <body>
     <main>
@@ -70,6 +70,56 @@
         <button id="regen-bass" type="button">New bass</button>
       </section>
 
+      <!-- Per-layer Gains -->
+      <section class="layer-gains" aria-label="Per-layer gains">
+        <span>Gains</span>
+        <div>
+          <label for="drums-gain-slider" class="sr-only">Drums</label>
+          <input id="drums-gain-slider" type="range" min="0" max="1" step="0.01" value="0.1" />
+          <div id="drums-gain-slider-display">Drums: 0.10</div>
+        </div>
+        <div>
+          <label for="chords-gain-slider" class="sr-only">Chords</label>
+          <input id="chords-gain-slider" type="range" min="0" max="1" step="0.01" value="0.9" />
+          <div id="chords-gain-slider-display">Chords: 0.90</div>
+        </div>
+        <div>
+          <label for="bass-gain-slider" class="sr-only">Bass</label>
+          <input id="bass-gain-slider" type="range" min="0" max="1" step="0.01" value="0.15" />
+          <div id="bass-gain-slider-display">Bass: 0.15</div>
+        </div>
+        <div>
+          <label for="melody-gain-slider" class="sr-only">Lead</label>
+          <input id="melody-gain-slider" type="range" min="0" max="1" step="0.01" value="0.5" />
+          <div id="melody-gain-slider-display">Lead: 0.50</div>
+        </div>
+      </section>
+
+      <!-- Effects -->
+      <section class="effects" aria-label="Effects">
+        <span>Effects</span>
+        <div>
+          <label for="chords-lpf-slider" class="sr-only">Chords LPF</label>
+          <input id="chords-lpf-slider" type="range" min="100" max="5000" step="100" value="1100" />
+          <div id="chords-lpf-slider-display">Chords LPF: 1100 Hz</div>
+        </div>
+        <div>
+          <label for="chords-room-slider" class="sr-only">Chords Room</label>
+          <input id="chords-room-slider" type="range" min="0" max="1" step="0.05" value="0.4" />
+          <div id="chords-room-slider-display">Chords Room: 0.40</div>
+        </div>
+        <div>
+          <label for="bass-lpf-slider" class="sr-only">Bass LPF</label>
+          <input id="bass-lpf-slider" type="range" min="100" max="2000" step="50" value="500" />
+          <div id="bass-lpf-slider-display">Bass LPF: 500 Hz</div>
+        </div>
+        <div>
+          <label for="melody-delay-slider" class="sr-only">Lead Delay</label>
+          <input id="melody-delay-slider" type="range" min="0" max="1" step="0.05" value="0.3" />
+          <div id="melody-delay-slider-display">Lead Delay: 0.30</div>
+        </div>
+      </section>
+
       <!-- Live readouts -->
       <section class="readouts" aria-label="Live readouts">
         <div id="cpm-display">CPM: 120</div>
@@ -77,6 +127,13 @@
         <div id="layers-display">Layers — drums:on chords:on bass:on melody:on</div>
         <div id="chord-display">Current chord: —</div>
         <div id="note-display">Last note: —</div>
+        
+        <div class="bank-status-group">
+          <div id="bank-lead-display">Lead Bank: —</div>
+          <div id="bank-bass-display">Bass Bank: —</div>
+          <div id="bank-chord-display">Chord Bank: —</div>
+          <div id="bank-drum-display">Drum Bank: —</div>
+        </div>
       </section>
 
       <p class="hint">Four-layer generative arrangement (drums · chords · bass · melody). Readouts update once per second.</p>

@@ -85,21 +85,26 @@ export function buildStrudelCode(state) {
   const parts = [];
 
   if (state.drumsOn) {
-    parts.push('s("bd, [~ sd]*2, hh*2").gain(0.1).slow(4)');
+    const drumBank = state.sampleBanks?.drum ? `"${state.sampleBanks.drum}"` : '"bd, [~ sd]*2, hh*2"';
+    const drumMod = state.sampleBanks?.drum ? '' : '.bank("RolandTR909")';
+    parts.push(`s(${drumBank})${drumMod}.gain(${state.drumsGain}).slow(4)`);
   }
   if (state.chordsOn) {
+    const chordBank = state.sampleBanks?.chord || 'sawtooth';
     parts.push(
-      `chord(seq(${formatChordSeq(chordArray)})).voicing().s("sawtooth").transpose(${t}).lpf(1100).room(0.4).gain(0.9).slow(16)`,
+      `chord(seq(${formatChordSeq(chordArray)})).voicing().s("${chordBank}").transpose(${t}).lpf(${state.chordsLpf}).room(${state.chordsRoom}).gain(${state.chordsGain}).slow(16)`,
     );
   }
   if (state.bassOn) {
+    const bassBank = state.sampleBanks?.bass || 'sawtooth';
     parts.push(
-      `n(seq(${formatMelodySeq(bassArray)})).scale("C:minor").s("sawtooth").transpose(${t}).lpf(500).gain(0.15).slow(8)`,
+      `n(seq(${formatMelodySeq(bassArray)})).scale("C:minor").s("${bassBank}").transpose(${t}).lpf(${state.bassLpf}).gain(${state.bassGain}).slow(8)`,
     );
   }
   if (state.melodyOn) {
+    const leadBank = state.sampleBanks?.lead || 'triangle';
     parts.push(
-      `n(seq(${formatMelodySeq(melodyArray)})).scale("C:minor").s("triangle").slow(8).transpose(${t}).gain(0.5).delay(0.3)`,
+      `n(seq(${formatMelodySeq(melodyArray)})).scale("C:minor").s("${leadBank}").slow(8).transpose(${t}).gain(${state.melodyGain}).delay(${state.melodyDelay})`,
     );
   }
 
