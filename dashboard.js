@@ -1,19 +1,29 @@
-import { initStrudel, evaluate, hush, samples } from '@strudel/web';
+import { initStrudel, evaluate, hush, samples, getAudioContext } from '@strudel/web';
 import '@strudel/repl';
-import { registerSoundfonts } from '@strudel/soundfonts';
 import { state, setStatus } from './src/state.js';
 import { createArrangement, buildStrudelCode } from './src/patterns/generative.js';
-import { loadCatalog, applyCatalogToState, sampleAvailability } from './src/samples/catalog.js';
+import { loadCatalog, applyCatalogToState } from './src/samples/catalog.js';
 import { initMIDI } from './src/midi/midi.js';
 
 let started = false;
 let strudelReady = false;
 
+function updateDebugStatus(message) {
+  const el = document.getElementById('debug-status-display');
+  if (el) el.innerText = message;
+  console.debug('[dashboard] debug:', message);
+}
+
 async function ensureStrudel() {
-  if (strudelReady) return;
+  if (strudelReady) {
+    updateDebugStatus('Strudel already initialized');
+    return;
+  }
+
+  updateDebugStatus('Initializing Strudel...');
   await initStrudel({
     prebake: async () => {
-      await registerSoundfonts();
+      updateDebugStatus('Prebaking: loading samples');
       await samples('github:tidalcycles/dirt-samples');
       const availability = await loadCatalog();
       applyCatalogToState(state);
@@ -21,14 +31,32 @@ async function ensureStrudel() {
       // If any audience samples exist, load them from the local server
       if (availability.lead || availability.bass || availability.chord || availability.drum) {
         try {
+          updateDebugStatus('Loading local audience samples');
           await samples(window.location.origin);
         } catch (err) {
           console.warn('[dashboard] Failed to load local samples:', err);
+          updateDebugStatus('Failed to load local audience samples');
         }
       }
     },
   });
+
+  // Ensure the AudioContext used by Strudel is running
+  try {
+    const ac = getAudioContext();
+    console.log('[dashboard] Strudel AudioContext state:', ac.state, 'sampleRate:', ac.sampleRate, 'currentTime:', ac.currentTime);
+    if (ac.state === 'suspended') {
+      console.warn('[dashboard] AudioContext is suspended, attempting resume...');
+      await ac.resume();
+      console.log('[dashboard] AudioContext resumed, state:', ac.state);
+    }
+    updateDebugStatus(`Strudel AudioContext: ${ac.state}, time=${ac.currentTime.toFixed(2)}`);
+  } catch (err) {
+    console.error('[dashboard] Failed to access Strudel AudioContext:', err);
+  }
+
   strudelReady = true;
+  updateDebugStatus('Strudel initialized');
 }
 
 /* ─── Status badge helper ──────────────────────────── */
@@ -67,10 +95,11 @@ function handleAction(type, key) {
     if (uiUpdaters[key]) uiUpdaters[key](state[key]);
     debouncedRestart();
   } else if (type === 'regen') {
-    if (key === 'all') regenerate({ regenChords: true, regenMelody: true, regenBass: true });
-    if (key === 'chords') regenerate({ regenChords: true, regenMelody: false, regenBass: false });
-    if (key === 'bass') regenerate({ regenChords: false, regenMelody: false, regenBass: true });
-    if (key === 'melody') regenerate({ regenChords: false, regenMelody: true, regenBass: false });
+    if (key === 'all') regenerate({ regenChords: true, regenMelody: true, regenBass: true, regenDrums: true });
+    if (key === 'chords') regenerate({ regenChords: true, regenMelody: false, regenBass: false, regenDrums: false });
+    if (key === 'bass') regenerate({ regenChords: false, regenMelody: false, regenBass: true, regenDrums: false });
+    if (key === 'melody') regenerate({ regenChords: false, regenMelody: true, regenBass: false, regenDrums: false });
+    if (key === 'drums') regenerate({ regenChords: false, regenMelody: false, regenBass: false, regenDrums: true });
   }
 }
 
@@ -121,10 +150,18 @@ function updateReadouts() {
     'chord-display': () => `Current chord: ${state.currentChord}`,
     
     // Sample bank status
-    'bank-lead-display': () => `Lead Bank: ${state.sampleBanks.lead || 'Synth (triangle)'}`,
-    'bank-bass-display': () => `Bass Bank: ${state.sampleBanks.bass || 'Synth (sawtooth)'}`,
-    'bank-chord-display': () => `Chord Bank: ${state.sampleBanks.chord || 'Synth (sawtooth)'}`,
-    'bank-drum-display': () => `Drum Bank: ${state.sampleBanks.drum || 'Default (TR909)'}`,
+    'bank-lead-display': () => state.sampleBanks.lead
+      ? `Lead Bank: ${state.sampleBanks.lead}`
+      : 'Lead Bank: Synth (triangle)',
+    'bank-bass-display': () => state.sampleBanks.bass
+      ? `Bass Bank: ${state.sampleBanks.bass}`
+      : 'Bass Bank: Synth (sawtooth)',
+    'bank-chord-display': () => state.sampleBanks.chord
+      ? `Chord Bank: ${state.sampleBanks.chord}`
+      : 'Chord Bank: Synth (sawtooth)',
+    'bank-drum-display': () => state.sampleBanks.drum
+      ? `Drum Bank: ${state.sampleBanks.drum}`
+      : 'Drum Bank: Synth fallback',
   };
   for (const [id, fn] of Object.entries(map)) {
     const el = document.getElementById(id);
@@ -133,36 +170,103 @@ function updateReadouts() {
   applyStatusClass(state.status);
 }
 
+/* ─── Audio diagnostics ────────────────────────────── */
+function playTestTone() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (ctx.state === 'suspended') ctx.resume();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = 440;
+    gain.gain.value = 0.3;
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+    osc.stop(ctx.currentTime + 0.5);
+    updateDebugStatus('Test tone played (440 Hz, 0.5s)');
+    console.log('[dashboard] Test tone: 440 Hz for 0.5s via raw Web Audio API');
+  } catch (err) {
+    updateDebugStatus(`Test tone FAILED: ${err.message}`);
+    console.error('[dashboard] Test tone failed:', err);
+  }
+}
+
+async function testStrudelSound() {
+  try {
+    await ensureStrudel();
+    
+    // Log AudioContext state
+    const ac = getAudioContext();
+    console.log('[test] AudioContext state:', ac.state, 'currentTime:', ac.currentTime);
+    if (ac.state === 'suspended') {
+      await ac.resume();
+      console.log('[test] AudioContext resumed:', ac.state);
+    }
+    
+    // Try the absolute simplest pattern
+    const testCode = 'note("c3 e3 g3 c4").sound("sine").gain(0.5).play()';
+    console.log('[test] Evaluating simple test pattern:', testCode);
+    updateDebugStatus('Testing simple Strudel pattern...');
+    await evaluate(testCode);
+    console.log('[test] evaluate() completed, AudioContext state:', ac.state, 'currentTime:', ac.currentTime);
+    updateDebugStatus(`Test pattern active - AC state: ${ac.state}, time: ${ac.currentTime.toFixed(1)}`);
+    
+    // Check again after a short delay
+    setTimeout(() => {
+      console.log('[test] After 1s - AudioContext state:', ac.state, 'currentTime:', ac.currentTime.toFixed(2));
+    }, 1000);
+  } catch (err) {
+    console.error('[test] testStrudelSound failed:', err);
+    updateDebugStatus(`Strudel test FAILED: ${err.message || err}`);
+  }
+}
+
 /* ─── Pattern lifecycle ────────────────────────────── */
 async function playPattern() {
   const code = buildStrudelCode(state);
-  console.debug('Playing Strudel code:\n', code);
+  updateDebugStatus('Evaluating play code');
+  console.log('[dashboard] Playing Strudel code:\n', code);
   
-  const repl = document.querySelector('strudel-editor');
+  const repl = document.getElementById('repl-editor');
   if (repl && repl.editor) {
+    if (!repl.editor._hooked) {
+      repl.editor._hooked = true;
+      repl.editor.evaluate = async function() {
+        updateDebugStatus('Evaluating live tweak');
+        try {
+          await evaluate(this.code);
+        } catch (err) {
+          console.error(err);
+        }
+      };
+    }
     repl.editor.setCode(code);
-    repl.editor.evaluate();
-  } else {
-    // Fallback if component isn't ready
+  }
+  
+  try {
     await evaluate(code);
+    updateDebugStatus('Playback started');
+  } catch (err) {
+    console.error('[dashboard] evaluate() error:', err);
+    updateDebugStatus(`evaluate() error: ${err.message || err}`);
+    throw err;
   }
 }
 
 async function stopPattern() {
   try {
-    const repl = document.querySelector('strudel-editor');
-    if (repl && repl.editor) {
-      repl.editor.stop();
-    } else {
-      hush();
-    }
+    updateDebugStatus('Stopping current pattern');
+    hush();
+    updateDebugStatus('Playback stopped');
   } catch (err) {
     console.warn('Stop failed:', err);
+    updateDebugStatus(`Stop failed: ${err.message || err}`);
   }
 }
 
 async function restartPattern() {
-  await stopPattern();
   await playPattern();
 }
 
@@ -242,23 +346,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Regenerate buttons
   document.getElementById('regen-all')?.addEventListener('click', () =>
-    regenerate({ regenChords: true, regenMelody: true, regenBass: true }),
+    regenerate({ regenChords: true, regenMelody: true, regenBass: true, regenDrums: true }),
   );
   document.getElementById('regen-chords')?.addEventListener('click', () =>
-    regenerate({ regenChords: true, regenMelody: false, regenBass: false }),
+    regenerate({ regenChords: true, regenMelody: false, regenBass: false, regenDrums: false }),
   );
   document.getElementById('regen-melody')?.addEventListener('click', () =>
-    regenerate({ regenChords: false, regenMelody: true, regenBass: false }),
+    regenerate({ regenChords: false, regenMelody: true, regenBass: false, regenDrums: false }),
   );
   document.getElementById('regen-bass')?.addEventListener('click', () =>
-    regenerate({ regenChords: false, regenMelody: false, regenBass: true }),
+    regenerate({ regenChords: false, regenMelody: false, regenBass: true, regenDrums: false }),
   );
+  document.getElementById('regen-drums')?.addEventListener('click', () =>
+    regenerate({ regenChords: false, regenMelody: false, regenBass: false, regenDrums: true }),
+  );
+
+  // Audio diagnostics
+  document.getElementById('test-tone-btn')?.addEventListener('click', playTestTone);
+  document.getElementById('test-strudel-btn')?.addEventListener('click', testStrudelSound);
 
   // Transport: Start
   const startBtn = document.getElementById('start-btn');
   if (startBtn) {
     startBtn.addEventListener('click', async () => {
-      if (started) return;
+      if (started) {
+        updateDebugStatus('Start clicked but already playing');
+        return;
+      }
+      updateDebugStatus('Start clicked');
       startBtn.disabled = true;
       setStatus('Loading…');
       updateReadouts();
@@ -267,8 +382,10 @@ document.addEventListener('DOMContentLoaded', () => {
         await playPattern();
         started = true;
         setStatus('Playing');
+        updateDebugStatus('Playback started successfully');
       } catch (err) {
         console.error(err);
+        updateDebugStatus(`Start error: ${err.message || err}`);
         setStatus(`Error: ${err.message || err}`);
         startBtn.disabled = false;
         return;

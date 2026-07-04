@@ -284,11 +284,13 @@ Packages: @strudel/repl OR @strudel/embed (pick one), @strudel/draw (transitive 
     - @strudel/repl web component for full REPL, or @strudel/embed for lighter embed
     - Same audio context / shared initStrudel instance as dashboard
     - Lets you live-code tweaks mid-show
+    - Status: Complete
 
 16. Pianoroll / visual feedback
     - ._pianoroll({ labels: 1 }) on chord, bass, melody layers (as in v0.0.12)
     - Optional: all(pianoroll) or punchcard for combined view
     - @strudel/draw handles canvas; bundled through @strudel/webaudio
+    - Status: Complete
 
 17. Optional soundfont fallback
     - @strudel/soundfonts if you want GM instruments before audience samples are ready

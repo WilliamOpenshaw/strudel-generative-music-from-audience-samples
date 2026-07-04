@@ -36,8 +36,52 @@ export function randomMelody(notes, length, silenceChance) {
   return a;
 }
 
-function formatChordSeq(chordArray) {
-  return chordArray.map(([dur, sym]) => `[${dur},"${sym}"]`).join(', ');
+const kickPool = [
+  "bd", "bd(3,8)", "bd(5,8)", "[bd bd]", "bd*2", "[bd ~ bd ~]", "bd(3,8,1)"
+];
+const snarePool = [
+  "[~ sd]*2", "~ sd", "[~ sd ~ [sd*2]]", "[~ sd]*4", "[~ sd] ~", "~ [sd sd]"
+];
+const hihatPool = [
+  "hh*2", "hh*4", "hh*8", "[hh hh hh ~]*2", "[~ hh]*4", "[hh*2 hh hh ~]*2"
+];
+
+export function randomDrums() {
+  const kick = kickPool[Math.floor(Math.random() * kickPool.length)];
+  const snare = snarePool[Math.floor(Math.random() * snarePool.length)];
+  const hihat = hihatPool[Math.floor(Math.random() * hihatPool.length)];
+  return `${kick}, ${snare}, ${hihat}`;
+}
+
+// Simple chord-to-notes mapping for synth playback
+const CHORD_NOTES = {
+  'Cm7':  '"C3, Eb3, G3, Bb3"',
+  'Fm7':  '"F3, Ab3, C4, Eb4"',
+  'Gm7':  '"G3, Bb3, D4, F4"',
+  'Bb7':  '"Bb2, D3, F3, Ab3"',
+  'EbM7': '"Eb3, G3, Bb3, D4"',
+  'AbM7': '"Ab2, C3, Eb3, G3"',
+  'Dm7':  '"D3, F3, A3, C4"',
+  'Em7':  '"E3, G3, B3, D4"',
+  'Am7':  '"A2, C3, E3, G3"',
+  'BbM7': '"Bb2, D3, F3, A3"',
+  'CM7':  '"C3, E3, G3, B3"',
+  'FM7':  '"F3, A3, C4, E4"',
+  'GM7':  '"G3, B3, D4, F#4"',
+};
+
+function formatChordPattern(chordArray) {
+  return chordArray
+    .map(([dur, sym]) => {
+      if (sym === '~') return `silence.legato(${dur})`;
+      const notes = CHORD_NOTES[sym];
+      if (notes) {
+        return `note(${notes}).legato(${dur})`;
+      }
+      // Fallback: try to use chord().voicing() for unknown chords
+      return `chord("${sym}").voicing().legato(${dur})`;
+    })
+    .join(', ');
 }
 
 function formatMelodySeq(melodyArray) {
@@ -48,8 +92,21 @@ function formatMelodySeq(melodyArray) {
     .join(', ');
 }
 
+function formatDrumFallback() {
+  return [
+    'pure(0).legato(0.25)',
+    'silence.legato(0.25)',
+    'pure(-7).legato(0.25)',
+    'silence.legato(0.25)',
+    'pure(0).legato(0.25)',
+    'silence.legato(0.25)',
+    'pure(-5).legato(0.25)',
+    'silence.legato(0.25)',
+  ].join(', ');
+}
+
 /** Create a new random arrangement and update dashboard readouts on state. */
-export function createArrangement(state, { regenChords = true, regenMelody = true, regenBass = true } = {}) {
+export function createArrangement(state, { regenChords = true, regenMelody = true, regenBass = true, regenDrums = true } = {}) {
   if (!state._arrangement) {
     state._arrangement = {};
   }
@@ -69,6 +126,9 @@ export function createArrangement(state, { regenChords = true, regenMelody = tru
   if (regenBass) {
     arr.bassArray = randomMelody([-7, -6, -5, -4, -3, -2, -1, 0, 1, 2], 8, 0.25);
   }
+  if (regenDrums) {
+    arr.drumString = randomDrums();
+  }
 
   return arr;
 }
@@ -81,30 +141,48 @@ export function buildStrudelCode(state) {
   }
   const { chordArray, melodyArray, bassArray } = state._arrangement;
   const t = state.transpose;
-  const masterGain = state.gain.toFixed(2);
+  const masterGain = state.gain;
   const parts = [];
 
+  const dGain = (state.drumsGain * masterGain).toFixed(2);
+  const cGain = (state.chordsGain * masterGain).toFixed(2);
+  const bGain = (state.bassGain * masterGain).toFixed(2);
+  const mGain = (state.melodyGain * masterGain).toFixed(2);
+
   if (state.drumsOn) {
-    const drumBank = state.sampleBanks?.drum ? `"${state.sampleBanks.drum}"` : '"bd, [~ sd]*2, hh*2"';
-    const drumMod = state.sampleBanks?.drum ? '' : '.bank("RolandTR909")';
-    parts.push(`s(${drumBank})${drumMod}.gain(${state.drumsGain}).slow(4)`);
+    const dString = arr.drumString || "bd, [~ sd]*2, hh*2";
+    if (state.sampleBanks?.drum) {
+      parts.push(
+        `s("${dString}").bank("${state.sampleBanks.drum}").gain(${dGain}).slow(4)`,
+      );
+    } else {
+      parts.push(
+        `s("${dString}").gain(${dGain}).slow(4)`,
+      );
+    }
   }
   if (state.chordsOn) {
-    const chordBank = state.sampleBanks?.chord || 'sawtooth';
+    const chordSource = state.sampleBanks?.chord
+      ? `.s("piano").bank("${state.sampleBanks.chord}")`
+      : '.s("sawtooth")';
     parts.push(
-      `chord(seq(${formatChordSeq(chordArray)})).voicing().s("${chordBank}").transpose(${t}).lpf(${state.chordsLpf}).room(${state.chordsRoom}).gain(${state.chordsGain}).slow(16)._pianoroll({ labels: 1 })`,
+      `seq(${formatChordPattern(chordArray)})${chordSource}.transpose(${t}).lpf(${state.chordsLpf}).room(${state.chordsRoom}).gain(${cGain}).slow(16).pianoroll({ labels: 1 })`,
     );
   }
   if (state.bassOn) {
-    const bassBank = state.sampleBanks?.bass || 'sawtooth';
+    const bassSource = state.sampleBanks?.bass
+      ? `s("piano").bank("${state.sampleBanks.bass}")`
+      : 's("sawtooth")';
     parts.push(
-      `n(seq(${formatMelodySeq(bassArray)})).scale("C:minor").s("${bassBank}").transpose(${t}).lpf(${state.bassLpf}).gain(${state.bassGain}).slow(8)._pianoroll({ labels: 1 })`,
+      `n(seq(${formatMelodySeq(bassArray)})).scale("C:minor").${bassSource}.transpose(${t}).lpf(${state.bassLpf}).gain(${bGain}).slow(8).pianoroll({ labels: 1 })`,
     );
   }
   if (state.melodyOn) {
-    const leadBank = state.sampleBanks?.lead || 'triangle';
+    const leadSource = state.sampleBanks?.lead
+      ? `s("piano").bank("${state.sampleBanks.lead}")`
+      : 's("triangle")';
     parts.push(
-      `n(seq(${formatMelodySeq(melodyArray)})).scale("C:minor").s("${leadBank}").slow(8).transpose(${t}).gain(${state.melodyGain}).delay(${state.melodyDelay})._pianoroll({ labels: 1 })`,
+      `n(seq(${formatMelodySeq(melodyArray)})).scale("C:minor").${leadSource}.slow(8).transpose(${t}).gain(${mGain}).delay(${state.melodyDelay}).pianoroll({ labels: 1 })`,
     );
   }
 
@@ -113,9 +191,13 @@ export function buildStrudelCode(state) {
   }
 
   return `
-setcpm(${state.cpm});
+setcpm(${Math.round(state.cpm * state.speed)});
 stack(
   ${parts.join(',\n  ')}
-).gain(${masterGain}).speed(${state.speed.toFixed(2)}).play()
+).onTrigger(h => {
+  if (window.updateStateFromStrudel) {
+    window.updateStateFromStrudel(h);
+  }
+}, false)
 `.trim();
 }

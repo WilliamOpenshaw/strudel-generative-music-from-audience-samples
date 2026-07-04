@@ -266,7 +266,7 @@ The full build order (20 features across 6 phases) is documented in `planning no
 | 2. Generative engine | Four-layer arrangement with controls | ✅ Complete |
 | 3. Audience samples | Load and map recordings to lead/bass/chords | ✅ Complete |
 | 4. MIDI | Two m-vave SMC-PAD controllers for improv players | ✅ Complete |
-| 5. Strudel REPL embed | Pianoroll + live coding alongside dashboard | 🔲 Not started |
+| 5. Strudel REPL embed | Pianoroll + live coding alongside dashboard | ✅ Complete |
 | 6. Audience phone UI | ~4 mobile buttons with guardrails | 🔲 Not started |
 
 ---
