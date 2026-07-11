@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <meta name="description" content="Audience interaction page — tap buttons to shape the live generative music." />
+    <title>Strudel — Audience</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/audience.css" />
+  </head>
+  <body>
+    <header class="audience-header">
+      <h1>Shape the Music</h1>
+      <div class="connection-status">
+        <span class="connection-dot" id="connection-dot"></span>
+        <span id="connection-label">Connecting…</span>
+      </div>
+    </header>
+
+    <div class="button-grid">
+      <button class="action-btn" data-action="more_energy" type="button" id="btn-more-energy">
+        <span class="btn-icon">🔥</span>
+        <span>More energy</span>
+      </button>
+      <button class="action-btn" data-action="calmer" type="button" id="btn-calmer">
+        <span class="btn-icon">🌊</span>
+        <span>Calmer</span>
+      </button>
+      <button class="action-btn" data-action="new_chords" type="button" id="btn-new-chords">
+        <span class="btn-icon">🎵</span>
+        <span>New chords</span>
+      </button>
+      <button class="action-btn" data-action="weird" type="button" id="btn-weird">
+        <span class="btn-icon">✨</span>
+        <span>Weird</span>
+      </button>
+    </div>
+
+    <footer class="audience-footer">
+      Tap a button to influence the live performance. One action every 2 seconds.
+    </footer>
+
+    <script type="module" src="/audience.js"></script>
+  </body>
+</html>

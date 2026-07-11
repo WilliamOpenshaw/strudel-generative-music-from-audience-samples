@@ -8,8 +8,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <script type="module" crossorigin src="/assets/index-DqvqvILh.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-BS3bwSLd.css">
+    <!-- strudel-editor component is registered by the npm @strudel/repl package -->
+    <script type="module" crossorigin src="/assets/main-CtLEdvsz.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/protocol-CqaZB_a-.js">
+    <link rel="stylesheet" crossorigin href="/assets/main-ClXDNJ3e.css">
   </head>
   <body>
     <div class="app-layout">
@@ -27,6 +29,8 @@
       <section class="controls" aria-label="Transport">
         <button id="start-btn" type="button">▶ Start</button>
         <button id="stop-btn" type="button">■ Stop</button>
+        <button id="test-tone-btn" type="button" style="margin-left:auto; font-size:0.8em; opacity:0.7;">🔊 Test Tone</button>
+        <button id="test-strudel-btn" type="button" style="font-size:0.8em; opacity:0.7;">🎵 Test Strudel</button>
       </section>
 
       <!-- Gain -->
@@ -73,6 +77,7 @@
         <button id="regen-chords" type="button">New chords</button>
         <button id="regen-melody" type="button">New melody</button>
         <button id="regen-bass" type="button">New bass</button>
+        <button id="regen-drums" type="button">New drums</button>
       </section>
 
       <!-- Per-layer Gains -->
@@ -141,11 +146,39 @@
         </div>
       </section>
 
+      <!-- Audience controls -->
+      <section class="audience-panel" aria-label="Audience Controls">
+        <span>Audience</span>
+        <div class="audience-info">
+          <div id="audience-connection-count" class="audience-badge">0 connected</div>
+          <div id="audience-last-action" class="audience-badge">No actions yet</div>
+        </div>
+        <div class="audience-locks">
+          <label class="lock-toggle">
+            <input type="checkbox" id="lock-more_energy" />
+            <span>Lock energy</span>
+          </label>
+          <label class="lock-toggle">
+            <input type="checkbox" id="lock-calmer" />
+            <span>Lock calmer</span>
+          </label>
+          <label class="lock-toggle">
+            <input type="checkbox" id="lock-new_chords" />
+            <span>Lock chords</span>
+          </label>
+          <label class="lock-toggle">
+            <input type="checkbox" id="lock-weird" />
+            <span>Lock weird</span>
+          </label>
+        </div>
+      </section>
+
       <p class="hint">Four-layer generative arrangement (drums · chords · bass · melody). Readouts update once per second.</p>
       </main>
       
       <aside class="editor-panel" aria-label="Strudel Live Code Editor">
-        <strudel-editor></strudel-editor>
+        <canvas id="test-canvas"></canvas>
+        <strudel-editor id="repl-editor" style="flex: 1; overflow: auto;"></strudel-editor>
       </aside>
     </div>
 

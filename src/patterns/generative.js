@@ -73,13 +73,13 @@ const CHORD_NOTES = {
 function formatChordPattern(chordArray) {
   return chordArray
     .map(([dur, sym]) => {
-      if (sym === '~') return `silence.legato(${dur})`;
+      if (sym === '~') return `silence`;
       const notes = CHORD_NOTES[sym];
       if (notes) {
-        return `note(${notes}).legato(${dur})`;
+        return `note(${notes}).legato(1)`;
       }
       // Fallback: try to use chord().voicing() for unknown chords
-      return `chord("${sym}").voicing().legato(${dur})`;
+      return `chord("${sym}").voicing().legato(1)`;
     })
     .join(', ');
 }
@@ -87,7 +87,7 @@ function formatChordPattern(chordArray) {
 function formatMelodySeq(melodyArray) {
   return melodyArray
     .map(({ dur, note }) =>
-      note === null ? `silence.legato(${dur})` : `pure(${note}).legato(${dur})`,
+      note === null ? `silence` : `pure(${note}).legato(1)`,
     )
     .join(', ');
 }

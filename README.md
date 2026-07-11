@@ -169,6 +169,36 @@ Since MIDI controllers send different Control Change (CC) and Note numbers, you 
 
 ---
 
+## Audience Phone Dashboard
+
+The dashboard includes a built-in realtime bridge that allows audience members to connect to the session from their mobile phones and influence the live music. 
+
+### How to Connect the Audience
+1. **Find your local network IP address:**
+   When you start the server using `npm run dev` or `npm start`, look at the terminal output. It will show a "Network" address (e.g., `http://192.168.1.50:3000/`).
+2. **Share the link:**
+   Provide your audience with the following URL (using your actual IP address):
+   `http://192.168.1.50:3000/audience.html`
+   *Tip: You can use a free QR code generator online to create a QR code of this URL and project it on a screen or print it out!*
+3. **Network Requirements:**
+   For this to work locally without any extra configuration, the audience members must be connected to the **same Wi-Fi network** as the host computer. If you want people on cellular data or outside the venue to connect, you will need to host the project on a public server or use a tool like Ngrok to expose your local server to the public internet.
+
+### What the Audience Can Do
+The mobile-friendly UI gives audience members 4 safe, rate-limited buttons:
+- **More energy**: Increases the tempo (CPM) slightly.
+- **Calmer**: Decreases the tempo.
+- **New chords**: Forces the engine to generate a brand new chord progression.
+- **Weird**: Randomly toggles extreme audio effects (heavy delay, deep low-pass filter, or big room reverb).
+
+### Operator Guardrails (Veto / Locks)
+On the main operator dashboard, you will find an **Audience Controls** panel beneath the live readouts:
+- It displays the total number of connected audience phones.
+- It flashes the last action triggered by an audience member.
+- You can **veto/lock** any action. For example, if the tempo is getting too fast, you can check the "Lock energy" box. This will immediately disable the "More energy" button on all audience phones, preventing them from increasing it further.
+- Built-in rate limiting ensures one audience member cannot spam a button (max 1 action per 2 seconds per phone).
+
+---
+
 ## Stopping the Dev Server
 
 When you're done, go back to the terminal where `npm run dev` is running and press **Ctrl + C** to stop the server.
@@ -267,7 +297,7 @@ The full build order (20 features across 6 phases) is documented in `planning no
 | 3. Audience samples | Load and map recordings to lead/bass/chords | ✅ Complete |
 | 4. MIDI | Two m-vave SMC-PAD controllers for improv players | ✅ Complete |
 | 5. Strudel REPL embed | Pianoroll + live coding alongside dashboard | ✅ Complete |
-| 6. Audience phone UI | ~4 mobile buttons with guardrails | 🔲 Not started |
+| 6. Audience phone UI | ~4 mobile buttons with guardrails | ✅ Complete |
 
 ---
 

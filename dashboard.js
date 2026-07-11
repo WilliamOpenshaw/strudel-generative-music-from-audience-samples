@@ -4,6 +4,7 @@ import { state, setStatus } from './src/state.js';
 import { createArrangement, buildStrudelCode } from './src/patterns/generative.js';
 import { loadCatalog, applyCatalogToState } from './src/samples/catalog.js';
 import { initMIDI } from './src/midi/midi.js';
+import { MSG, ACTION_EFFECTS, ACTION_LABELS, ACTIONS } from './src/ws/protocol.js';
 
 let started = false;
 let strudelReady = false;
@@ -407,7 +408,110 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Wire up the onTrigger callback used by generated Strudel code
+  window.updateStateFromStrudel = (hap) => {
+    const note = hap?.value?.note || hap?.value?.s;
+    if (note) state.currentNote = String(note);
+  };
+
   // Initial readout + 1 Hz poll
   updateReadouts();
   setInterval(updateReadouts, 1000);
+
+  // ─── Audience WebSocket client ──────────────────────
+  initAudienceWS();
 });
+
+/* ─── Audience WebSocket (operator side) ───────────── */
+function initAudienceWS() {
+  const countEl = document.getElementById('audience-connection-count');
+  const lastActionEl = document.getElementById('audience-last-action');
+  let ws = null;
+  let reconnectDelay = 500;
+
+  function connect() {
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    ws = new WebSocket(`${protocol}//${location.host}/ws?role=operator`);
+
+    ws.onopen = () => {
+      console.log('[audience-ws] Connected as operator');
+      reconnectDelay = 500;
+    };
+
+    ws.onclose = () => {
+      console.log('[audience-ws] Disconnected, reconnecting...');
+      setTimeout(() => {
+        reconnectDelay = Math.min(reconnectDelay * 2, 10000);
+        connect();
+      }, reconnectDelay);
+    };
+
+    ws.onerror = () => { /* onclose fires after */ };
+
+    ws.onmessage = (event) => {
+      let msg;
+      try { msg = JSON.parse(event.data); } catch { return; }
+
+      if (msg.type === MSG.STATUS && msg.audienceCount !== undefined) {
+        if (countEl) countEl.innerText = `${msg.audienceCount} connected`;
+      }
+
+      if (msg.type === MSG.AUDIENCE_ACTION) {
+        applyAudienceAction(msg.action);
+        flashLastAction(msg.action);
+      }
+
+      if (msg.type === MSG.LOCK_UPDATE) {
+        // Sync lock checkboxes with server state
+        const locked = new Set(msg.locked || []);
+        for (const actionId of Object.values(ACTIONS)) {
+          const cb = document.getElementById(`lock-${actionId}`);
+          if (cb) cb.checked = locked.has(actionId);
+        }
+      }
+    };
+  }
+
+  function applyAudienceAction(actionId) {
+    const effect = ACTION_EFFECTS[actionId];
+    if (!effect) return;
+
+    if (effect.type === 'adjust') {
+      const current = state[effect.key] || 0;
+      const next = Math.max(effect.min, Math.min(effect.max, current + effect.delta));
+      updateParameter(effect.key, next);
+    } else if (effect.type === 'regen') {
+      const opts = { regenChords: false, regenMelody: false, regenBass: false, regenDrums: false };
+      opts[`regen${effect.key.charAt(0).toUpperCase() + effect.key.slice(1)}`] = true;
+      regenerate(opts);
+    } else if (effect.type === 'effect') {
+      const pick = effect.pool[Math.floor(Math.random() * effect.pool.length)];
+      if (pick === 'heavyDelay') updateParameter('melodyDelay', Math.min(1, state.melodyDelay + 0.25));
+      else if (pick === 'deepLpf') updateParameter('chordsLpf', Math.max(100, state.chordsLpf - 300));
+      else if (pick === 'bigRoom') updateParameter('chordsRoom', Math.min(1, state.chordsRoom + 0.2));
+    }
+  }
+
+  function flashLastAction(actionId) {
+    const label = ACTION_LABELS[actionId] || actionId;
+    if (lastActionEl) {
+      lastActionEl.innerText = `↣ ${label}`;
+      lastActionEl.classList.add('flash');
+      setTimeout(() => lastActionEl.classList.remove('flash'), 1200);
+    }
+  }
+
+  // Lock toggles → send to server
+  for (const actionId of Object.values(ACTIONS)) {
+    const cb = document.getElementById(`lock-${actionId}`);
+    if (cb) {
+      cb.addEventListener('change', () => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: MSG.TOGGLE_LOCK, action: actionId }));
+        }
+      });
+    }
+  }
+
+  connect();
+}

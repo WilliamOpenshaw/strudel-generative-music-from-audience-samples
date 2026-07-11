@@ -312,6 +312,7 @@ Packages: none required from Strudel; add a tiny realtime channel (e.g. ws via v
 20. Show-safe guardrails
     - Rate-limit audience input; clamp parameter ranges
     - Visual confirmation on operator dashboard when audience acts
+    - Status: Complete
 
 ────────────────────────────────────────────────────────────
 Package summary (install when reaching each phase)

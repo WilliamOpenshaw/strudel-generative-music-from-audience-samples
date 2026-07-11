@@ -84,7 +84,14 @@ main {
 }
 
 strudel-editor {
-  display: none; /* Only need its logic, the DOM is injected after it */
+  /* Let the component stay in flow — it injects its editor as a sibling.
+     Hiding the element entirely is fragile if @strudel/repl changes its
+     DOM injection strategy in a future version. */
+  display: block;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  position: absolute;
 }
 
 .editor-panel > div {
@@ -378,6 +385,10 @@ section > div[id$='-display'] {
   font-weight: 700;
 }
 
+.readouts .bank-status-group::before {
+  content: none;
+}
+
 .bank-status-group {
   margin-top: 0.5rem;
   padding-top: 0.5rem;
@@ -409,6 +420,85 @@ section > div[id$='-display'] {
 .hint-inline {
   color: var(--text-muted);
   font-size: 0.78rem;
+}
+
+/* ─── Audience panel ───────────────────────────────── */
+.audience-panel {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.6rem;
+  background: linear-gradient(135deg, rgba(255, 207, 107, 0.04), rgba(165, 107, 255, 0.03));
+  border-color: rgba(255, 207, 107, 0.15);
+}
+
+.audience-info {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.audience-badge {
+  display: inline-block;
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding: 0.25rem 0.7rem;
+  border-radius: 100px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  transition: background var(--transition-default), color var(--transition-default),
+    border-color var(--transition-default);
+}
+
+.audience-badge.flash {
+  background: rgba(165, 107, 255, 0.15);
+  border-color: rgba(165, 107, 255, 0.4);
+  color: #c89eff;
+}
+
+.audience-locks {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.lock-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.lock-toggle input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--border-subtle);
+  border-radius: 4px;
+  background: var(--bg-elevated);
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.lock-toggle input[type='checkbox']:checked {
+  background: rgba(242, 92, 92, 0.2);
+  border-color: rgba(242, 92, 92, 0.5);
+}
+
+.lock-toggle input[type='checkbox']:checked::after {
+  content: '🔒';
+  position: absolute;
+  top: -1px;
+  left: 1px;
+  font-size: 10px;
+  line-height: 1;
 }
 
 /* ─── Responsive ───────────────────────────────────── */
