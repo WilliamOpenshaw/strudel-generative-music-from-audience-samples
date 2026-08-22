@@ -1,9 +1,8 @@
 /**
- * Sample catalog — detects which audience sample banks are available
- * by fetching /strudel.json and inspecting each role's file list.
+ * Sample catalog — detects which audience sample banks and individual sample
+ * files are available by fetching /strudel.json.
  */
 
-/** Which roles have at least one audience sample loaded. */
 export const sampleAvailability = {
   lead: false,
   bass: false,
@@ -15,15 +14,14 @@ export const sampleAvailability = {
 export let catalogData = null;
 
 /**
- * Fetch /strudel.json and determine which audience sample banks exist.
- * Safe to call multiple times — only fetches once.
- * Returns the availability object.
+ * Fetch /strudel.json and determine which audience sample banks and files exist.
+ * Pass force=true to re-fetch from server.
  */
-export async function loadCatalog() {
-  if (catalogData !== null) return sampleAvailability;
+export async function loadCatalog(force = false) {
+  if (!force && catalogData !== null) return sampleAvailability;
 
   try {
-    const res = await fetch('/strudel.json');
+    const res = await fetch(`/strudel.json?t=${Date.now()}`);
     if (!res.ok) {
       console.info('[catalog] No /strudel.json found — using synth fallback for all layers.');
       catalogData = {};
@@ -53,7 +51,6 @@ export async function loadCatalog() {
 function hasFiles(catalog, key) {
   const entry = catalog[key];
   if (Array.isArray(entry) && entry.length > 0) return true;
-  // Also handle object-style mapping { note: 'file.wav', ... }
   if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
     return Object.keys(entry).length > 0;
   }
@@ -61,12 +58,57 @@ function hasFiles(catalog, key) {
 }
 
 /**
- * Apply sample availability to the shared state's sampleBanks.
- * Call this after loadCatalog() to populate state.sampleBanks.
+ * Get all individual sample files with friendly names and layer metadata.
+ */
+export function getAllSamples() {
+  if (!catalogData) return [];
+
+  const items = [];
+  const seenFiles = new Set();
+
+  const layerMap = {
+    audience_lead: 'Lead',
+    audience_bass: 'Bass',
+    audience_chord: 'Chords',
+    audience_drum: 'Drums',
+  };
+
+  for (const [layerKey, layerLabel] of Object.entries(layerMap)) {
+    const files = catalogData[layerKey];
+    if (Array.isArray(files)) {
+      files.forEach((filename) => {
+        if (!seenFiles.has(filename)) {
+          seenFiles.add(filename);
+          const soundKey = filename.replace(/\.[^.]+$/, '');
+          items.push({
+            filename,
+            soundKey,
+            layerKey,
+            layerLabel,
+            displayName: soundKey,
+          });
+        }
+      });
+    }
+  }
+
+  return items;
+}
+
+/**
+ * Apply detected sample availability to the global state object.
  */
 export function applyCatalogToState(state) {
-  state.sampleBanks.lead = sampleAvailability.lead ? 'audience_lead' : null;
-  state.sampleBanks.bass = sampleAvailability.bass ? 'audience_bass' : null;
-  state.sampleBanks.chord = sampleAvailability.chord ? 'audience_chord' : null;
-  state.sampleBanks.drum = sampleAvailability.drum ? 'audience_drum' : null;
+  if (!state.sampleBanks) {
+    state.sampleBanks = {
+      lead: null,
+      bass: null,
+      chord: null,
+      drum: null,
+    };
+  }
+  if (sampleAvailability.lead && !state.sampleBanks.lead) state.sampleBanks.lead = 'audience_lead';
+  if (sampleAvailability.bass && !state.sampleBanks.bass) state.sampleBanks.bass = 'audience_bass';
+  if (sampleAvailability.chord && !state.sampleBanks.chord) state.sampleBanks.chord = 'audience_chord';
+  if (sampleAvailability.drum && !state.sampleBanks.drum) state.sampleBanks.drum = 'audience_drum';
 }

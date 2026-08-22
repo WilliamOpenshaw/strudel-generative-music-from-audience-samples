@@ -1,0 +1,44 @@
+When you close or trash an integrated terminal tab, the background Node.js/Vite process may sometimes become orphaned and continue holding onto the port (e.g., port 3000 or 5173). 
+
+Here are the built-in IDE features and quick tools to monitor, manage, and cleanly stop these running processes:
+
+---
+
+### 1. The Built-in IDE Views to Check
+
+#### A. **Process Explorer (Best for managing IDE-spawned processes)**
+1. Open the Command Palette (`Ctrl+Shift+P`).
+2. Type and select **`Developer: Open Process Explorer`**.
+3. A popup window will display a tree of all active processes spawned by the IDE, including running Node processes, terminals, and extensions.
+4. You can see their CPU/Memory usage, right-click on any orphaned `node.exe` or terminal process, and choose **Kill**.
+
+#### B. **Ports View**
+1. In the bottom panel (where Terminal / Output / Debug Console are located), click the **Ports** tab (or run `Ctrl+Shift+P` $\rightarrow$ **`Ports: Focus on Ports View`**).
+2. Any port forwarded or listened to by local servers will appear here.
+3. You can see which port is active, stop forwarding, or check what is bound.
+
+#### C. **Call Stack / Run & Debug Panel**
+* If tasks or dev scripts were started via Debug configurations or IDE Tasks, switch to the **Run & Debug** panel (`Ctrl+Shift+D`).
+* Active debug sessions and background tasks will show up in the **Call Stack** view with a red **Stop** button.
+
+---
+
+### 2. Always Cleanly Stop Dev Servers First
+Before closing or trashing the terminal window:
+* Click into the terminal running `npm run dev` and press **`Ctrl + C`** (often twice on Windows if prompted `Terminate batch job (Y/N)?`) to let the process exit cleanly.
+
+---
+
+### 3. Quick PowerShell / Command Line One-Liners to Kill Stuck Ports
+If a port remains locked on Windows, you can quickly find and kill whatever is holding it directly from a fresh PowerShell terminal:
+
+#### Kill a specific port (e.g. port 3000):
+```powershell
+Stop-Process -Id (Get-NetTCPConnection -LocalPort 3000).OwningProcess -Force
+```
+*(Replace `3000` with whatever port Vite / your server is using, like `5173` or `8080`).*
+
+#### Kill all orphaned Node instances:
+```powershell
+taskkill /F /IM node.exe
+```

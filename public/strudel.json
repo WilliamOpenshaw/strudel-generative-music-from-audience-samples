@@ -1,7 +1,33 @@
 {
   "_base": "./samples/",
-  "audience_lead": [],
-  "audience_bass": [],
-  "audience_chord": [],
-  "audience_drum": []
+  "audience_lead": [
+    "vox_lead_main.webm",
+    "audience_lead_1784213511997.webm"
+  ],
+  "audience_bass": [
+    "audience_bass_1784274707350.webm",
+    "audience_bass_1784212262990.webm"
+  ],
+  "audience_chord": [
+    "audience_chord_1784274750624.webm",
+    "audience_chord_1784212349824.webm"
+  ],
+  "audience_drum": [
+    "audience_drum_1784274762163.webm",
+    "audience_drum_1784212641887.webm",
+    "audience_drum_1784212451341.webm"
+  ],
+  "audience_bass_1784212262990": "audience_bass_1784212262990.webm",
+  "audience_bass_1784274707350": "audience_bass_1784274707350.webm",
+  "audience_chord_1784212349824": "audience_chord_1784212349824.webm",
+  "audience_chord_1784274750624": "audience_chord_1784274750624.webm",
+  "audience_drum_1784212451341": "audience_drum_1784212451341.webm",
+  "audience_drum_1784212641887": "audience_drum_1784212641887.webm",
+  "audience_drum_1784274762163": "audience_drum_1784274762163.webm",
+  "audience_lead_1784213511997": "audience_lead_1784213511997.webm",
+  "bass": "bass",
+  "chord": "chord",
+  "drum": "drum",
+  "lead": "lead",
+  "vox_lead_main": "vox_lead_main.webm"
 }

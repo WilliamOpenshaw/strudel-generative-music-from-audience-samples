@@ -63,12 +63,14 @@ main {
 }
 
 .editor-panel {
-  flex: 1;
-  min-width: 400px;
+  flex: none;
+  width: 520px;
+  min-width: 320px;
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   overflow: hidden;
+  resize: both;
   height: calc(100vh - 4rem);
   position: sticky;
   top: 2rem;
@@ -76,29 +78,65 @@ main {
   flex-direction: column;
 }
 
-#test-canvas {
-  width: 100%;
+.editor-panel-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.75rem 1rem 0.6rem;
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.editor-panel-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--accent);
+}
+
+.editor-panel-hint {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+/* .repl-host holds the <strudel-editor> placeholder and the injected container div.
+   The injected div (inserted as a sibling by repl-component.mjs) will become the
+   second child of .repl-host and should stretch to fill the remaining panel height. */
+.repl-host {
   flex: 1;
-  background: var(--bg-surface);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* The real CodeMirror + piano-roll container injected by repl-component.mjs */
+.repl-host > div {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* #test-canvas is the piano roll canvas — @strudel/draw finds it by id="test-canvas".
+   Give it a fixed portion of the panel so both piano roll and code editor are visible. */
+#test-canvas {
+  display: block;
+  width: 100%;
+  flex: 0 0 200px;
+  min-height: 120px;
+  max-height: 40%;
+  background: #0a0c10;
   border-bottom: 1px solid var(--border-subtle);
 }
 
+/* <strudel-editor> itself is a 0-size registration hook; the real editor is the injected sibling div */
 strudel-editor {
-  /* Let the component stay in flow — it injects its editor as a sibling.
-     Hiding the element entirely is fragile if @strudel/repl changes its
-     DOM injection strategy in a future version. */
-  display: block;
-  width: 0;
-  height: 0;
-  overflow: hidden;
-  position: absolute;
+  display: none;
 }
 
-.editor-panel > div {
-  width: 100%;
-  flex: 1;
-  overflow: auto;
-}
 
 h1 {
   font-size: 1.5rem;
@@ -338,12 +376,88 @@ section > div[id$='-display'] {
   min-width: 100px;
 }
 
+/* ─── Time Signature ───────────────────────────────── */
+.time-sig select {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.35rem 0.6rem;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  min-width: 70px;
+  text-align: center;
+}
+
+.time-sig select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.time-sig #time-sig-display {
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
 /* ─── Transpose ────────────────────────────────────── */
 .transpose button {
   width: 34px;
   height: 34px;
   padding: 0;
   font-size: 1.15rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+}
+
+/* ─── Octave & Density controls ────────────────────── */
+.octave-controls,
+.density-controls {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.45rem;
+}
+
+.octave-row,
+.density-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.octave-row label,
+.density-row label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  width: 60px;
+}
+
+.octave-row div,
+.density-row div {
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  min-width: 40px;
+  text-align: center;
+}
+
+.octave-row button,
+.density-row button {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  font-size: 1rem;
   line-height: 1;
   display: inline-flex;
   align-items: center;
@@ -359,6 +473,75 @@ section > div[id$='-display'] {
 .layer-gains,
 .effects {
   gap: 0.75rem;
+}
+
+/* ─── Sample Recording ─────────────────────────────── */
+.sample-recording {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  background: rgba(255, 60, 60, 0.03);
+  border: 1px solid rgba(255, 60, 60, 0.15);
+}
+
+.sample-recording span {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+  display: block;
+}
+
+.recording-controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  width: 100%;
+}
+
+.recording-controls select {
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.35rem 0.5rem;
+  font-family: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  flex: 1;
+}
+
+.recording-controls button {
+  padding: 0.4rem 0.7rem;
+  font-size: 0.85rem;
+}
+
+#record-btn {
+  background: rgba(255, 60, 60, 0.1);
+  color: #ff6b6b;
+  border-color: rgba(255, 60, 60, 0.2);
+}
+#record-btn:hover:not(:disabled) {
+  background: rgba(255, 60, 60, 0.2);
+}
+#record-btn.is-recording {
+  background: #ff4757;
+  color: white;
+  animation: pulse-record 1.5s infinite alternate;
+}
+@keyframes pulse-record {
+  0% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.4); }
+  100% { box-shadow: 0 0 0 8px rgba(255, 71, 87, 0); }
+}
+
+.recording-status {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-family: monospace;
 }
 
 .readouts {
@@ -407,6 +590,55 @@ section > div[id$='-display'] {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border-width: 0;
+}
+
+/* ─── Instruments panel ──────────────────────────────── */
+.instruments-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.instrument-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.instrument-row label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  width: 60px;
+}
+
+.instrument-row select {
+  flex: 1;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.3rem 0.5rem;
+  font-family: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+  appearance: none;
+}
+
+.instrument-row select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.instrument-row button {
+  padding: 0.3rem;
+  font-size: 0.9rem;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  min-width: unset;
 }
 
 /* ─── Hint text ────────────────────────────────────── */
@@ -517,3 +749,521 @@ section > div[id$='-display'] {
     font-size: 0.8rem;
   }
 }
+
+/* ─── Sample Editor ────────────────────────────────── */
+.sample-editor {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.85rem;
+  padding: 1.2rem;
+  background: linear-gradient(135deg, rgba(108, 140, 255, 0.03), rgba(61, 214, 140, 0.02));
+  border-color: rgba(108, 140, 255, 0.15);
+  position: relative;
+  overflow: hidden;
+}
+
+.sample-editor span {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+  display: block;
+}
+
+.editor-header {
+  display: flex;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.editor-header select {
+  flex: 1;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.6rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.editor-header select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.editor-header button {
+  padding: 0.4rem 0.75rem;
+  background: var(--bg-surface);
+}
+
+.editor-rename-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.rename-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+
+#editor-rename-input {
+  flex: 1;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.35rem 0.6rem;
+  font-family: monospace;
+  font-size: 0.8rem;
+}
+
+#editor-rename-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+
+.editor-waveform-container {
+  width: 100%;
+  height: 120px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  position: relative;
+  overflow: hidden;
+  box-shadow: inset 0 2px 10px rgba(0,0,0,0.2);
+}
+
+#editor-waveform {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: crosshair;
+}
+
+.editor-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--success);
+  left: 0;
+  pointer-events: none;
+  display: none;
+  box-shadow: 0 0 8px var(--success);
+}
+
+.editor-controls {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  background: var(--bg-elevated);
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+}
+
+.editor-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.editor-row > label {
+  width: 80px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+
+.adsr-sliders {
+  display: flex;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.slider-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  flex: 1;
+}
+
+.slider-col input[type='range'] {
+  min-width: unset;
+  width: 100%;
+}
+
+.slider-col label {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+}
+
+.editor-actions {
+  display: flex;
+  gap: 0.5rem;
+  width: 100%;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}
+
+#editor-preview-btn {
+  color: var(--warning);
+  border-color: rgba(245, 166, 35, 0.3);
+}
+
+#editor-preview-btn:hover:not(:disabled) {
+  background: rgba(245, 166, 35, 0.1);
+}
+
+#editor-preview-btn.playing {
+  background: rgba(245, 166, 35, 0.2);
+}
+
+#editor-save-btn {
+  background: rgba(61, 214, 140, 0.1);
+  color: var(--success);
+  border-color: rgba(61, 214, 140, 0.3);
+}
+
+#editor-save-btn:hover:not(:disabled) {
+  background: rgba(61, 214, 140, 0.2);
+}
+
+/* ─── Pitch detection & tuning ─────────────────────── */
+.editor-pitch-badge {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background: rgba(108, 140, 255, 0.08);
+  border: 1px solid rgba(108, 140, 255, 0.2);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.pitch-badge-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.pitch-label {
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 0.75rem;
+}
+
+.pitch-val {
+  font-family: monospace;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.8rem;
+}
+
+.pitch-val.target {
+  color: var(--accent);
+}
+
+.pitch-val.shift {
+  color: var(--success);
+}
+
+.pitch-tuning-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+  flex-wrap: wrap;
+}
+
+.pitch-tuning-group select {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.3rem 0.6rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.fine-tune-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1;
+  min-width: 140px;
+}
+
+.fine-tune-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.fine-tune-wrapper input[type='range'] {
+  flex: 1;
+  min-width: 60px;
+}
+
+#editor-fine-tune-display {
+  font-size: 0.75rem;
+  font-family: monospace;
+  color: var(--text-secondary);
+  min-width: 32px;
+  text-align: right;
+}
+
+.btn-sm {
+  padding: 0.25rem 0.55rem;
+  font-size: 0.75rem;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  cursor: pointer;
+  margin-left: auto;
+  transition: border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.btn-sm:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+/* ─── Track Pitch & Transposition Controls ─────────── */
+.track-transpose-controls {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.track-pitch-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.track-pitch-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  background: var(--bg-elevated);
+  padding: 0.4rem 0.65rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  flex-wrap: wrap;
+}
+
+.track-pitch-row > label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  width: 55px;
+  flex-shrink: 0;
+}
+
+.pitch-btn-group {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: var(--bg-surface);
+  padding: 0.2rem 0.4rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+}
+
+.pitch-ctrl-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-right: 0.15rem;
+}
+
+.pitch-btn-group button {
+  padding: 0.15rem 0.45rem;
+  font-size: 0.8rem;
+  min-width: 22px;
+  height: 24px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pitch-val-display {
+  font-family: monospace;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  min-width: 26px;
+  text-align: center;
+}
+
+.btn-reset-track {
+  padding: 0.2rem 0.45rem;
+  font-size: 0.85rem;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
+  margin-left: auto;
+}
+
+.btn-reset-track:hover {
+  color: var(--accent);
+  border-color: var(--border-subtle);
+  background: var(--bg-surface);
+}
+
+/* ─── Audience Control & Link Panel ─────────────────── */
+.header-badge-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--accent-subtle);
+  border: 1px solid var(--accent);
+  color: var(--accent-light, #38bdf8);
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background var(--transition-fast), transform var(--transition-fast);
+}
+
+.header-badge-link:hover {
+  background: var(--accent);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.audience-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1rem;
+}
+
+.audience-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.audience-panel-title > span:first-child {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.audience-page-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.6rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--accent);
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  transition: all var(--transition-fast);
+}
+
+.audience-page-btn:hover {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+}
+
+.audience-status-pill {
+  font-size: 0.75rem;
+  font-family: monospace;
+  color: var(--text-secondary);
+  margin-left: auto;
+}
+
+.audience-action-locks {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.lock-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.78rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.lock-btn:hover {
+  border-color: var(--border-hover);
+}
+
+.lock-btn.locked {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: var(--danger, #ef4444);
+  color: var(--danger, #ef4444);
+}
+
+.lock-icon {
+  font-size: 0.85rem;
+  margin-left: 0.3rem;
+}
+
+.audience-activity-toast {
+  font-size: 0.72rem;
+  font-family: monospace;
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  padding: 0.3rem 0.5rem;
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--accent);
+  transition: border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.audience-activity-toast.flash {
+  color: var(--accent-light, #38bdf8);
+  border-left-color: var(--accent-light, #38bdf8);
+}
+
+
+

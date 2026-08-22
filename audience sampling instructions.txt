@@ -1,0 +1,42 @@
+# Audience Sampling Instructions
+
+The Strudel Dashboard allows you to record custom audio directly from your microphone and instantly use it as an instrument for any of the generative layers (Lead, Bass, Chords, Drums).
+
+## 🎙 How to Record a Sample
+
+1. Locate the **"Sample Recording"** section on the dashboard.
+2. Select the **target layer** from the dropdown menu (e.g., "Lead", "Bass", "Chords", "Drums").
+3. Click the **🔴 Record** button. 
+   - *Note: Your browser may prompt you for permission to use your microphone. You must click "Allow".*
+4. Speak, sing, or play an instrument into your microphone!
+5. When you're finished, click the **⏹ Stop** button.
+6. Wait for the status indicator to show **"Ready."** This means your sample has been uploaded and Strudel has been refreshed.
+
+## 🎧 How to Use Your Sample
+
+Once you have recorded a sample, you need to assign it to the active layer:
+
+1. Locate the **"Instruments"** panel on the dashboard.
+2. Find the dropdown for the layer you just recorded to (e.g., "Lead").
+3. Scroll to the bottom of the dropdown list and select the `audience_[layer]` option (e.g., `audience_lead`).
+4. You will immediately hear your custom sample being used by the generative music engine! 
+
+## 🔧 Troubleshooting
+
+- **"Mic access denied"**: Make sure you clicked "Allow" when the browser asked for microphone permissions. If you accidentally clicked block, look for a camera/microphone icon in your URL bar to reset the permissions.
+- **Recording doesn't start**: Make sure you are accessing the dashboard over `localhost` or a secure `https://` connection. Web browsers block microphone access on insecure connections.
+- **Instrument isn't in the list**: If the `audience_...` option does not appear in the instrument dropdown after recording, try refreshing the page. The system checks for available samples on load.
+
+## 🗑 Managing & Deleting Samples
+
+All of your recorded audio samples are stored as `.webm` files directly in your project folder. 
+
+**To view or listen to them:**
+1. Open the `public/samples/` folder in your project directory. 
+2. You will see your recorded files named by the layer and the time they were recorded (e.g., `audience_lead_16938573...webm`). You can listen to these files using any standard media player.
+
+**To delete or reset samples:**
+1. Delete the `.webm` audio files from the `public/samples/` directory.
+2. Open `public/strudel.json` in your code editor.
+3. Remove the filenames from the corresponding arrays (`audience_lead`, `audience_bass`, etc.) so that the arrays are empty `[]` again. 
+4. Save `public/strudel.json` and refresh your dashboard.

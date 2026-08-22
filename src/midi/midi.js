@@ -13,14 +13,20 @@ const CC_MAP = {
   4: 'transpose',    // CC 4 -> Transpose
   
   // Other potential knobs:
-  // 5: 'drumsGain', 6: 'chordsGain', 7: 'bassGain', 8: 'melodyGain'
-  // 9: 'chordsLpf', 10: 'chordsRoom', 11: 'bassLpf', 12: 'melodyDelay'
+  5: 'drumsGain', 
+  6: 'chordsGain', 
+  7: 'bassGain', 
+  8: 'melodyGain',
+  9: 'chordsLpf', 
+  10: 'chordsRoom', 
+  11: 'bassLpf', 
+  12: 'melodyDelay'
 };
 
 // Map MIDI Note numbers (from pads) to actions
 // Action string format: 'toggle:drumsOn' or 'regen:all'
 const PAD_MAP = {
-  // Example Notes (update these after checking console logs)
+  // Original 8 Pads
   36: 'toggle:drumsOn',  // Note 36 (C2)
   37: 'toggle:chordsOn', 
   38: 'toggle:bassOn',   
@@ -30,6 +36,16 @@ const PAD_MAP = {
   41: 'regen:chords',
   42: 'regen:bass',
   43: 'regen:melody',
+
+  // Extra 8 Pads
+  44: 'regen:drums',
+  45: 'transport:start',
+  46: 'transport:stop',
+  47: 'rand:drum',
+  48: 'rand:chord',
+  49: 'rand:bass',
+  50: 'rand:lead',
+  51: 'transport:stop', // fallback / extra control or we can just double map stop
 };
 
 // Parameter ranges to scale CC (0-127) to application values

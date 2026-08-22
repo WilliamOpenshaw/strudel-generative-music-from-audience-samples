@@ -9,9 +9,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <!-- strudel-editor component is registered by the npm @strudel/repl package -->
-    <script type="module" crossorigin src="/assets/main-CtLEdvsz.js"></script>
-    <link rel="modulepreload" crossorigin href="/assets/protocol-CqaZB_a-.js">
-    <link rel="stylesheet" crossorigin href="/assets/main-ClXDNJ3e.css">
+    <script type="module" crossorigin src="/assets/main-BeQ57tMN.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/protocol-D7lvXZsz.js">
+    <link rel="stylesheet" crossorigin href="/assets/main-C0u54vdo.css">
   </head>
   <body>
     <div class="app-layout">
@@ -21,9 +21,39 @@
         <div class="header-badges">
           <div id="status-display">Stopped</div>
           <div id="midi-status-display">MIDI: Checking...</div>
+          <a href="/audience.html" target="_blank" id="audience-header-link" class="header-badge-link" title="Open live audience control page">
+            📱 Audience <span id="audience-count-badge">0</span> ↗
+          </a>
           <div id="debug-status-display">Debug: idle</div>
+          <canvas id="audio-meter" width="100" height="20" aria-label="Audio Meter" style="border-radius: 100px; border: 1px solid var(--border-subtle); display: block;"></canvas>
         </div>
       </header>
+
+      <!-- Audience Control Panel -->
+      <section class="audience-panel" aria-label="Audience Live Control">
+        <div class="audience-panel-title">
+          <span>Audience Control</span>
+          <a href="/audience.html" target="_blank" class="audience-page-btn" title="Open audience interaction page">
+            📱 Open /audience.html ↗
+          </a>
+          <span class="audience-status-pill" id="audience-status-pill">👥 0 connected</span>
+        </div>
+        <div class="audience-action-locks">
+          <button type="button" class="lock-btn" data-action="more_energy" id="lock-more-energy" title="Toggle lock for More Energy">
+            🔥 More energy <span class="lock-icon" id="lock-icon-more_energy">🔓</span>
+          </button>
+          <button type="button" class="lock-btn" data-action="calmer" id="lock-calmer" title="Toggle lock for Calmer">
+            🌊 Calmer <span class="lock-icon" id="lock-icon-calmer">🔓</span>
+          </button>
+          <button type="button" class="lock-btn" data-action="new_chords" id="lock-new-chords" title="Toggle lock for New Chords">
+            🎵 New chords <span class="lock-icon" id="lock-icon-new_chords">🔓</span>
+          </button>
+          <button type="button" class="lock-btn" data-action="weird" id="lock-weird" title="Toggle lock for Weird">
+            ✨ Weird <span class="lock-icon" id="lock-icon-weird">🔓</span>
+          </button>
+        </div>
+        <div id="audience-activity-toast" class="audience-activity-toast">Waiting for audience actions…</div>
+      </section>
 
       <!-- Transport -->
       <section class="controls" aria-label="Transport">
@@ -54,6 +84,26 @@
         <div id="cpm-slider-display">CPM: 120</div>
       </section>
 
+      <!-- Time Signature -->
+      <section class="time-sig" aria-label="Time signature">
+        <span>Time Sig</span>
+        <select id="time-sig-select">
+          <option value="2/4">2/4</option>
+          <option value="3/4">3/4</option>
+          <option value="4/4" selected>4/4</option>
+          <option value="5/4">5/4</option>
+          <option value="6/4">6/4</option>
+          <option value="7/4">7/4</option>
+          <option value="3/8">3/8</option>
+          <option value="5/8">5/8</option>
+          <option value="6/8">6/8</option>
+          <option value="7/8">7/8</option>
+          <option value="9/8">9/8</option>
+          <option value="12/8">12/8</option>
+        </select>
+        <div id="time-sig-display">4/4</div>
+      </section>
+
       <!-- Transpose -->
       <section class="transpose" aria-label="Transpose">
         <span>Transpose</span>
@@ -78,6 +128,113 @@
         <button id="regen-melody" type="button">New melody</button>
         <button id="regen-bass" type="button">New bass</button>
         <button id="regen-drums" type="button">New drums</button>
+      </section>
+
+      <!-- Track Transpose & Octave (Independent Controls) -->
+      <section class="track-transpose-controls" aria-label="Track Transposition">
+        <span>Track Pitch</span>
+        <div class="track-pitch-grid">
+          <!-- Lead -->
+          <div class="track-pitch-row">
+            <label>Lead</label>
+            <div class="pitch-btn-group">
+              <span class="pitch-ctrl-label">Step</span>
+              <button id="lead-trans-down" type="button" aria-label="Lead step down">−</button>
+              <div id="lead-trans-display" class="pitch-val-display">0</div>
+              <button id="lead-trans-up" type="button" aria-label="Lead step up">+</button>
+            </div>
+            <div class="pitch-btn-group">
+              <span class="pitch-ctrl-label">Oct</span>
+              <button id="lead-oct-down" type="button" aria-label="Lead octave down">−</button>
+              <div id="lead-oct-display" class="pitch-val-display">0</div>
+              <button id="lead-oct-up" type="button" aria-label="Lead octave up">+</button>
+            </div>
+            <button id="lead-pitch-reset" type="button" class="btn-reset-track" title="Reset Lead Pitch">↺</button>
+          </div>
+
+          <!-- Chords -->
+          <div class="track-pitch-row">
+            <label>Chords</label>
+            <div class="pitch-btn-group">
+              <span class="pitch-ctrl-label">Step</span>
+              <button id="chords-trans-down" type="button" aria-label="Chords step down">−</button>
+              <div id="chords-trans-display" class="pitch-val-display">0</div>
+              <button id="chords-trans-up" type="button" aria-label="Chords step up">+</button>
+            </div>
+            <div class="pitch-btn-group">
+              <span class="pitch-ctrl-label">Oct</span>
+              <button id="chords-oct-down" type="button" aria-label="Chords octave down">−</button>
+              <div id="chords-oct-display" class="pitch-val-display">0</div>
+              <button id="chords-oct-up" type="button" aria-label="Chords octave up">+</button>
+            </div>
+            <button id="chords-pitch-reset" type="button" class="btn-reset-track" title="Reset Chords Pitch">↺</button>
+          </div>
+
+          <!-- Bass -->
+          <div class="track-pitch-row">
+            <label>Bass</label>
+            <div class="pitch-btn-group">
+              <span class="pitch-ctrl-label">Step</span>
+              <button id="bass-trans-down" type="button" aria-label="Bass step down">−</button>
+              <div id="bass-trans-display" class="pitch-val-display">0</div>
+              <button id="bass-trans-up" type="button" aria-label="Bass step up">+</button>
+            </div>
+            <div class="pitch-btn-group">
+              <span class="pitch-ctrl-label">Oct</span>
+              <button id="bass-oct-down" type="button" aria-label="Bass octave down">−</button>
+              <div id="bass-oct-display" class="pitch-val-display">0</div>
+              <button id="bass-oct-up" type="button" aria-label="Bass octave up">+</button>
+            </div>
+            <button id="bass-pitch-reset" type="button" class="btn-reset-track" title="Reset Bass Pitch">↺</button>
+          </div>
+
+          <!-- Drums -->
+          <div class="track-pitch-row">
+            <label>Drums</label>
+            <div class="pitch-btn-group">
+              <span class="pitch-ctrl-label">Step</span>
+              <button id="drums-trans-down" type="button" aria-label="Drums step down">−</button>
+              <div id="drums-trans-display" class="pitch-val-display">0</div>
+              <button id="drums-trans-up" type="button" aria-label="Drums step up">+</button>
+            </div>
+            <div class="pitch-btn-group">
+              <span class="pitch-ctrl-label">Oct</span>
+              <button id="drums-oct-down" type="button" aria-label="Drums octave down">−</button>
+              <div id="drums-oct-display" class="pitch-val-display">0</div>
+              <button id="drums-oct-up" type="button" aria-label="Drums octave up">+</button>
+            </div>
+            <button id="drums-pitch-reset" type="button" class="btn-reset-track" title="Reset Drums Pitch">↺</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Note Density -->
+      <section class="density-controls" aria-label="Note density">
+        <span>Density</span>
+        <div class="density-row">
+          <label>Melody</label>
+          <button id="melody-density-half" type="button" aria-label="Halve melody notes">÷2</button>
+          <button id="melody-density-down" type="button" aria-label="Fewer melody notes">−</button>
+          <div id="melody-density-display">16</div>
+          <button id="melody-density-up" type="button" aria-label="More melody notes">+</button>
+          <button id="melody-density-double" type="button" aria-label="Double melody notes">×2</button>
+        </div>
+        <div class="density-row">
+          <label>Bass</label>
+          <button id="bass-density-half" type="button" aria-label="Halve bass notes">÷2</button>
+          <button id="bass-density-down" type="button" aria-label="Fewer bass notes">−</button>
+          <div id="bass-density-display">16</div>
+          <button id="bass-density-up" type="button" aria-label="More bass notes">+</button>
+          <button id="bass-density-double" type="button" aria-label="Double bass notes">×2</button>
+        </div>
+        <div class="density-row">
+          <label>Drums</label>
+          <button id="drums-density-half" type="button" aria-label="Halve drum elements">÷2</button>
+          <button id="drums-density-down" type="button" aria-label="Fewer drum elements">−</button>
+          <div id="drums-density-display">16</div>
+          <button id="drums-density-up" type="button" aria-label="More drum elements">+</button>
+          <button id="drums-density-double" type="button" aria-label="Double drum elements">×2</button>
+        </div>
       </section>
 
       <!-- Per-layer Gains -->
@@ -130,12 +287,153 @@
         </div>
       </section>
 
+      <!-- Sample Recording -->
+      <section class="sample-recording" aria-label="Sample Recording">
+        <span>Record Mic</span>
+        <div class="recording-controls">
+          <select id="record-layer-select">
+            <option value="audience_lead">Lead</option>
+            <option value="audience_bass">Bass</option>
+            <option value="audience_chord">Chords</option>
+            <option value="audience_drum">Drums</option>
+          </select>
+          <button id="record-btn" type="button" aria-label="Start recording">🔴 Record</button>
+          <button id="stop-record-btn" type="button" aria-label="Stop recording" disabled>⏹ Stop</button>
+        </div>
+        <div id="recording-status" class="recording-status">Ready to record</div>
+      </section>
+
+      <!-- Sample Editor -->
+      <section class="sample-editor" aria-label="Sample Editor">
+        <span>Edit Sample</span>
+        <div class="editor-header">
+          <button id="editor-prev-btn" type="button" aria-label="Previous sample" disabled>◀</button>
+          <select id="editor-sample-select" disabled>
+            <option value="">No samples available</option>
+          </select>
+          <button id="editor-next-btn" type="button" aria-label="Next sample" disabled>▶</button>
+        </div>
+
+        <div class="editor-rename-row">
+          <label for="editor-rename-input" class="rename-label">Name:</label>
+          <input type="text" id="editor-rename-input" placeholder="Sample name" />
+          <button id="editor-rename-btn" type="button" class="btn-sm" title="Rename sample">✏️ Rename</button>
+        </div>
+        
+        <div class="editor-waveform-container">
+          <canvas id="editor-waveform"></canvas>
+          <div class="editor-playhead" id="editor-playhead"></div>
+        </div>
+
+        <!-- Pitch Detection Readout Banner -->
+        <div class="editor-pitch-badge" id="editor-pitch-badge">
+          <div class="pitch-badge-item">
+            <span class="pitch-label">Detected:</span>
+            <span class="pitch-val" id="editor-detected-pitch">—</span>
+          </div>
+          <div class="pitch-badge-item">
+            <span class="pitch-label">Target:</span>
+            <span class="pitch-val target" id="editor-target-pitch">C4</span>
+          </div>
+          <div class="pitch-badge-item">
+            <span class="pitch-label">Shift:</span>
+            <span class="pitch-val shift" id="editor-shift-amount">0¢ (1.00x)</span>
+          </div>
+        </div>
+
+        <div class="editor-controls">
+          <div class="editor-row">
+            <label>ADSR</label>
+            <div class="adsr-sliders">
+              <div class="slider-col"><input type="range" id="editor-attack" min="0" max="1" step="0.01" value="0" title="Attack"/><label>A</label></div>
+              <div class="slider-col"><input type="range" id="editor-decay" min="0" max="1" step="0.01" value="0" title="Decay"/><label>D</label></div>
+              <div class="slider-col"><input type="range" id="editor-sustain" min="0" max="1" step="0.01" value="1" title="Sustain"/><label>S</label></div>
+              <div class="slider-col"><input type="range" id="editor-release" min="0" max="2" step="0.01" value="0.1" title="Release"/><label>R</label></div>
+            </div>
+          </div>
+
+          <div class="editor-row">
+            <label>Trim</label>
+            <input type="range" id="editor-trim-start" min="0" max="1" step="0.001" value="0" title="Start" />
+            <input type="range" id="editor-trim-end" min="0" max="1" step="0.001" value="1" title="End" />
+          </div>
+          
+          <div class="editor-row">
+            <label>Fades/X-Fade</label>
+            <input type="range" id="editor-fade-in" min="0" max="1" step="0.01" value="0" title="Fade In" />
+            <input type="range" id="editor-fade-out" min="0" max="1" step="0.01" value="0" title="Fade Out" />
+            <input type="range" id="editor-crossfade" min="0" max="0.5" step="0.01" value="0" title="Crossfade" />
+          </div>
+
+          <div class="editor-row editor-toggles">
+            <label class="lock-toggle">
+              <input type="checkbox" id="editor-normalize" checked />
+              <span>Normalize</span>
+            </label>
+            <label class="lock-toggle">
+              <input type="checkbox" id="editor-tune-c" checked />
+              <span>Tune to C</span>
+            </label>
+            <button id="editor-reanalyze-btn" type="button" class="btn-sm" title="Re-analyze pitch">🔍 Analyze Pitch</button>
+          </div>
+
+          <div class="editor-row" id="editor-pitch-controls-row">
+            <label>Pitching</label>
+            <div class="pitch-tuning-group">
+              <select id="editor-target-octave" title="Target Octave">
+                <option value="nearest" selected>Nearest C</option>
+                <option value="C2">C2 (Bass · 65.4 Hz)</option>
+                <option value="C3">C3 (Low · 130.8 Hz)</option>
+                <option value="C4">C4 (Mid · 261.6 Hz)</option>
+                <option value="C5">C5 (High · 523.3 Hz)</option>
+              </select>
+              <div class="fine-tune-wrapper" title="Fine Tune (cents)">
+                <label for="editor-fine-tune" class="fine-tune-label">Fine:</label>
+                <input type="range" id="editor-fine-tune" min="-100" max="100" step="1" value="0" />
+                <span id="editor-fine-tune-display">0¢</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="editor-actions">
+          <button id="editor-preview-btn" type="button" disabled>► Preview</button>
+          <button id="editor-save-btn" type="button" disabled>💾 Apply & Save</button>
+        </div>
+      </section>
+
+      <!-- Instruments -->
+      <section class="instruments-panel" aria-label="Instruments">
+        <span>Instruments</span>
+        <div class="instrument-row">
+          <label for="inst-drum">Drums</label>
+          <select id="inst-drum"></select>
+          <button id="rand-drum" type="button" aria-label="Randomize drums instrument">🎲</button>
+        </div>
+        <div class="instrument-row">
+          <label for="inst-chord">Chords</label>
+          <select id="inst-chord"></select>
+          <button id="rand-chord" type="button" aria-label="Randomize chords instrument">🎲</button>
+        </div>
+        <div class="instrument-row">
+          <label for="inst-bass">Bass</label>
+          <select id="inst-bass"></select>
+          <button id="rand-bass" type="button" aria-label="Randomize bass instrument">🎲</button>
+        </div>
+        <div class="instrument-row">
+          <label for="inst-lead">Lead</label>
+          <select id="inst-lead"></select>
+          <button id="rand-lead" type="button" aria-label="Randomize lead instrument">🎲</button>
+        </div>
+      </section>
+
       <!-- Live readouts -->
       <section class="readouts" aria-label="Live readouts">
         <div id="cpm-display">CPM: 120</div>
         <div id="speed-display">Speed: 1.00</div>
         <div id="layers-display">Layers — drums:on chords:on bass:on melody:on</div>
         <div id="chord-display">Current chord: —</div>
+        <div id="scale-display">Key/Scale: —</div>
         <div id="note-display">Last note: —</div>
         
         <div class="bank-status-group">
@@ -177,8 +475,18 @@
       </main>
       
       <aside class="editor-panel" aria-label="Strudel Live Code Editor">
-        <canvas id="test-canvas"></canvas>
-        <strudel-editor id="repl-editor" style="flex: 1; overflow: auto;"></strudel-editor>
+        <div class="editor-panel-header">
+          <span class="editor-panel-label">🎹 Live Code Editor &amp; Piano Roll</span>
+          <span class="editor-panel-hint">Edit code below &amp; press Ctrl+Enter to apply</span>
+        </div>
+        <!-- #test-canvas is the piano roll canvas — @strudel/draw's getDrawContext() looks
+             for this exact id. Without it, it creates a full-screen overlay instead. -->
+        <canvas id="test-canvas" aria-label="Piano Roll Visualizer"></canvas>
+        <!-- strudel-editor injects its real CodeMirror container as the next sibling inside
+             .repl-host. The <strudel-editor> element itself is display:none. -->
+        <div class="repl-host">
+          <strudel-editor id="repl-editor"></strudel-editor>
+        </div>
       </aside>
     </div>
 
