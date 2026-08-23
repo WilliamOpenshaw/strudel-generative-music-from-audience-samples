@@ -78,11 +78,11 @@ export function generateProceduralDrumPattern(density, beats, isAudience) {
   const normalizedDensity = Math.max(1, Math.min(64, density)) / 64; // 0.0 to 1.0
 
   const insts = isAudience ? ['0'] : ['bd', 'sd', 'hh'];
-  
+
   for (let b = 0; b < beats; b++) {
     // Determine complexity of this beat
     const rand = Math.random();
-    
+
     if (rand > normalizedDensity + 0.3) {
       // Rest
       elements.push('~');
@@ -103,7 +103,7 @@ export function generateProceduralDrumPattern(density, beats, isAudience) {
       elements.push(insts[Math.floor(Math.random() * insts.length)]);
     }
   }
-  
+
   return elements.join(' ');
 }
 
@@ -186,6 +186,23 @@ export function buildStrudelCode(state) {
   console.debug(`[generative] timeSig=${tsNum}/${tsDen}  cyclesPerMeasure=${cyclesPerMeasure}  noteSpan=${noteSpan}  chordSlow=${chordSlow}  drumSlow=${drumSlow}`);
   console.debug(`[generative] melodyDensity=${state.melodyDensity} (${melodyArray?.length} notes)  bassDensity=${state.bassDensity} (${bassArray?.length} notes)  drumsDensity=${drumDensity}`);
 
+
+  function getFx(track) {
+    const pan = state[`${track}Pan`] ?? 0.5;
+    const delay = state[`${track}Delay`] ?? 0;
+    const lpf = state[`${track}Lpf`] ?? 20000;
+    const hpf = state[`${track}Hpf`] ?? 0;
+    const room = state[`${track}Room`] ?? 0;
+    const distort = state[`${track}Distort`] ?? 0;
+    const atk = state[`${track}Attack`] ?? 0.01;
+    const dec = state[`${track}Decay`] ?? 0.1;
+    const sus = state[`${track}Sustain`] ?? 1.0;
+    const rel = state[`${track}Release`] ?? 0.1;
+
+    // Formatting exact newlines per user request
+    return `\n.pan(${pan})\n.delay(${delay})\n.lpf(${lpf}).hpf(${hpf})\n.room(${room})\n.shape(${distort})\n.attack(${atk}).decay(${dec}).sustain(${sus}).release(${rel})`;
+  }
+
   // ─── Drums ───
   if (state.drumsOn) {
     const drumTransStr = drumT !== 0 ? `.transpose(${drumT})` : '';
@@ -201,20 +218,20 @@ export function buildStrudelCode(state) {
     const dGain = (Number(state.drumsGain ?? 0.5) * masterGain).toFixed(2);
     if (drumSound === 'synth' || drumSound === 'default') {
       parts.push(
-        `n(seq(${formatDrumFallback()})).s("triangle")${drumTransStr}.gain(${dGain}).release(0.05).slow(${drumSlow})`,
+        `\n//drums\n  n(seq(${formatDrumFallback()})).s("triangle")${drumTransStr}\n.gain(${dGain})${getFx("drums")}\n.slow(${drumSlow})`
       );
     } else if (isAudienceSample) {
       // For user-recorded audience drum samples
       const pattern = arr.audienceDrumPattern || '0 [~ 0] 0 [~ 0]';
       parts.push(
-        `s("${pattern}").s("${drumSound}")${drumTransStr}.gain(${dGain}).slow(${drumSlow})`,
+        `\n//drums\n  s("${pattern}").s("${drumSound}")${drumTransStr}\n.gain(${dGain})${getFx("drums")}\n.slow(${drumSlow})`
       );
     } else {
       // For all built-in drum kits (RolandTR909, RolandTR808, rolandtr909, linn, akaimpc60, rolandr8, etc.)
       // Use standard drum notation without commas
       const pattern = arr.drumPattern || 'bd [~ sd]*2 hh*2';
       parts.push(
-        `s("${pattern}").bank("${drumSound}")${drumTransStr}.gain(${dGain}).slow(${drumSlow})`,
+        `\n//drums\n  s("${pattern}").bank("${drumSound}")${drumTransStr}\n.gain(${dGain})${getFx("drums")}\n.slow(${drumSlow})`
       );
     }
   }
@@ -226,7 +243,7 @@ export function buildStrudelCode(state) {
     const chordSound = state.sampleBanks?.chord || state.instruments?.chord || 'sawtooth';
     const cGain = (Number(state.chordsGain ?? 0.9) * masterGain).toFixed(2);
     parts.push(
-      `slowcat(${formatChordPattern(chordArray)}).voicing().s("${chordSound}").transpose(${chordT}).lpf(${state.chordsLpf}).room(${state.chordsRoom}).gain(${cGain}).slow(${chordSlow})`,
+      `\n//chords\n  slowcat(${formatChordPattern(chordArray)})\n.voicing()\n.s("${chordSound}")\n.transpose(${chordT})\n.gain(${cGain})${getFx("chords")}\n.slow(${chordSlow})`,
     );
   }
 
@@ -238,7 +255,7 @@ export function buildStrudelCode(state) {
     const bassSound = state.sampleBanks?.bass || state.instruments?.bass || 'sawtooth';
     const bGain = (Number(state.bassGain ?? 0.15) * masterGain).toFixed(2);
     parts.push(
-      `n(seq(${formatMelodySeq(bassArray)})).scale("C:minor").s("${bassSound}").transpose(${bassT}).lpf(${state.bassLpf}).gain(${bGain}).slow(${noteSpan})`,
+      `\n//bass\n  n(seq(${formatMelodySeq(bassArray)}))\n.scale("C:minor")\n.s("${bassSound}")\n.transpose(${bassT})\n.gain(${bGain})${getFx("bass")}\n.slow(${noteSpan})`,
     );
   }
 
@@ -251,7 +268,7 @@ export function buildStrudelCode(state) {
     const leadSound = state.sampleBanks?.lead || state.instruments?.lead || 'triangle';
     const mGain = (Number(state.melodyGain ?? 0.5) * masterGain).toFixed(2);
     parts.push(
-      `n(seq(${formatMelodySeq(melodyArray)})).scale("C:minor").s("${leadSound}").transpose(${leadT}).gain(${mGain}).delay(${state.melodyDelay}).slow(${noteSpan})`,
+      `\n//melody\n  n(seq(${formatMelodySeq(melodyArray)}))\n.scale("C:minor")\n.s("${leadSound}")\n.transpose(${leadT})\n.gain(${mGain})${getFx("melody")}\n.slow(${noteSpan})`,
     );
   }
 
@@ -263,6 +280,7 @@ export function buildStrudelCode(state) {
 setcpm(${state.cpm});
 stack(
   ${parts.join(',\n  ')}
+
 ).speed(${state.speed.toFixed(2)}).play()
 `.trim();
 }

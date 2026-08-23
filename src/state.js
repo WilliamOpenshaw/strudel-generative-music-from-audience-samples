@@ -20,10 +20,10 @@ export const state = {
   melodyGain: 1.00,
 
   // Per-layer effects
-  chordsLpf: 1100,
-  chordsRoom: 0.4,
-  bassLpf: 500,
-  melodyDelay: 0.3,
+  drumsPan: 0.5, drumsDelay: 0, drumsLpf: 20000, drumsHpf: 0, drumsRoom: 0, drumsDistort: 0, drumsAttack: 0.01, drumsDecay: 0.1, drumsSustain: 1.0, drumsRelease: 0.1,
+  chordsPan: 0.5, chordsDelay: 0, chordsLpf: 1100, chordsHpf: 0, chordsRoom: 0.4, chordsDistort: 0, chordsAttack: 0.01, chordsDecay: 0.1, chordsSustain: 1.0, chordsRelease: 0.1,
+  bassPan: 0.5, bassDelay: 0, bassLpf: 500, bassHpf: 0, bassRoom: 0, bassDistort: 0, bassAttack: 0.01, bassDecay: 0.1, bassSustain: 1.0, bassRelease: 0.1,
+  melodyPan: 0.5, melodyDelay: 0.3, melodyLpf: 20000, melodyHpf: 0, melodyRoom: 0, melodyDistort: 0, melodyAttack: 0.01, melodyDecay: 0.1, melodySustain: 1.0, melodyRelease: 0.1,
 
   // Per-layer independent transpose (in semitone steps)
   leadTranspose: 0,

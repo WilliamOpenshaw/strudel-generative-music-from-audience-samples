@@ -5,47 +5,70 @@
 // If you don't know the CC numbers, watch the browser console while twisting a knob.
 // Then update these numbers to match your hardware.
 const CC_MAP = {
-  // Pad A Knobs (example)
-  1: 'gain',         // CC 1 -> Master Gain
-  2: 'speed',        // CC 2 -> Speed
-  // Pad B Knobs (example)
-  3: 'cpm',          // CC 3 -> CPM
-  4: 'transpose',    // CC 4 -> Transpose
-  
-  // Other potential knobs:
-  5: 'drumsGain', 
-  6: 'chordsGain', 
-  7: 'bassGain', 
+  // Encoders Bank 1 (CC 1-8)
+  1: 'gain',         // Master Gain
+  2: 'speed',        // Speed (Playback Rate)
+  3: 'cpm',          // CPM (Tempo)
+  4: 'transpose',    // Transpose
+  5: 'drumsGain',
+  6: 'chordsGain',
+  7: 'bassGain',
   8: 'melodyGain',
-  9: 'chordsLpf', 
-  10: 'chordsRoom', 
-  11: 'bassLpf', 
-  12: 'melodyDelay'
+
+  // Encoders Bank 2 (CC 9-16)
+  9: 'drumsRoom',
+  10: 'chordsRoom',
+  11: 'bassRoom',
+  12: 'melodyRoom',
+  13: 'drumsLpf',
+  14: 'chordsLpf',
+  15: 'bassLpf',
+  16: 'melodyLpf',
 };
 
 // Map MIDI Note numbers (from pads) to actions
-// Action string format: 'toggle:drumsOn' or 'regen:all'
 const PAD_MAP = {
-  // Original 8 Pads
-  36: 'toggle:drumsOn',  // Note 36 (C2)
-  37: 'toggle:chordsOn', 
-  38: 'toggle:bassOn',   
-  39: 'toggle:melodyOn', 
-  
-  40: 'regen:all',
-  41: 'regen:chords',
-  42: 'regen:bass',
-  43: 'regen:melody',
+  // Pad Bank 1 (Notes 1-16)
+  1: 'toggle:drumsOn',
+  2: 'toggle:chordsOn',
+  3: 'toggle:bassOn',
+  4: 'toggle:melodyOn',
+  5: 'rand:drum',
+  6: 'rand:chord',
+  7: 'rand:bass',
+  8: 'rand:lead',
+  9: 'regen:all',
+  10: 'regen:drums',
+  11: 'regen:chords',
+  12: 'regen:bass',
+  13: 'regen:melody',
+  14: 'pitch:down',
+  15: 'pitch:reset',
+  16: 'pitch:up',
 
-  // Extra 8 Pads
-  44: 'regen:drums',
-  45: 'transport:start',
-  46: 'transport:stop',
-  47: 'rand:drum',
-  48: 'rand:chord',
-  49: 'rand:bass',
-  50: 'rand:lead',
-  51: 'transport:stop', // fallback / extra control or we can just double map stop
+  // Pad Bank 2 (Notes 21-36)
+  21: 'effectReset:all',
+  22: 'effectReset:drums',
+  23: 'effectReset:chords',
+  24: 'effectReset:bass',
+  25: 'effectReset:melody',
+  26: 'densityHalf:melody',
+  27: 'densityDouble:melody',
+  28: 'densityHalf:bass',
+  29: 'densityDouble:bass',
+  30: 'densityHalf:drums',
+  31: 'densityDouble:drums',
+  32: 'record:start',
+  33: 'record:stop',
+};
+
+// Additional button actions triggered via CC (value > 0)
+const CC_BUTTON_MAP = {
+  25: 'pitch:down',      // Left
+  26: 'pitch:up',        // Right
+  27: 'transport:start', // Play
+  28: 'transport:stop',  // Pause
+  29: 'record:toggle'    // Record
 };
 
 // Parameter ranges to scale CC (0-127) to application values
@@ -61,7 +84,12 @@ const RANGES = {
   chordsLpf: [100, 5000],
   chordsRoom: [0, 1],
   bassLpf: [100, 2000],
-  melodyDelay: [0, 1]
+  melodyDelay: [0, 1],
+  drumsRoom: [0, 1],
+  bassRoom: [0, 1],
+  melodyRoom: [0, 1],
+  drumsLpf: [100, 20000],
+  melodyLpf: [100, 20000]
 };
 
 // Utility to map 0-127 to a target range
@@ -70,7 +98,7 @@ function scaleCC(value, min, max, isInteger = false) {
   return isInteger ? Math.round(scaled) : scaled;
 }
 
-export async function initMIDI({ onParameterChange, onAction, onStatusUpdate }) {
+export async function initMIDI({ getState, onParameterChange, onAction, onStatusUpdate, onRawMessage }) {
   if (!navigator.requestMIDIAccess) {
     onStatusUpdate('MIDI: Not Supported');
     console.warn('[MIDI] Web MIDI API not supported in this browser.');
@@ -84,7 +112,7 @@ export async function initMIDI({ onParameterChange, onAction, onStatusUpdate }) 
 
     for (let input of inputs) {
       console.info(`[MIDI] Found device: ${input.name} (ID: ${input.id})`);
-      input.onmidimessage = (msg) => handleMIDIMessage(msg, onParameterChange, onAction);
+      input.onmidimessage = (msg) => handleMIDIMessage(msg, getState, onParameterChange, onAction, onRawMessage);
       connectedCount++;
     }
 
@@ -105,24 +133,31 @@ export async function initMIDI({ onParameterChange, onAction, onStatusUpdate }) 
   }
 }
 
-function handleMIDIMessage(message, onParameterChange, onAction) {
+const lastCcValue = {};
+
+function handleMIDIMessage(message, getState, onParameterChange, onAction, onRawMessage) {
   const [commandData, data1, data2] = message.data;
   
   // Strip MIDI channel (0-15) from command byte (upper 4 bits is the type)
   const command = commandData >> 4; 
-  // const channel = commandData & 0xf; // Not currently needed, but good to know
 
-  // Note On (command 9). Some devices send Note On with velocity 0 instead of Note Off
+  if (onRawMessage) {
+    if (command === 9 && data2 > 0) {
+      const action = PAD_MAP[data1] || 'Unmapped';
+      onRawMessage(`Pad Note ${data1} (${action})`);
+    } else if (command === 11) {
+      const param = CC_MAP[data1] || 'Unmapped';
+      onRawMessage(`Encoder CC ${data1}: ${data2} (${param})`);
+    }
+  }
+
+  // Note On (command 9)
   if (command === 9 && data2 > 0) {
     const noteNumber = data1;
-    // const velocity = data2;
-    
     if (PAD_MAP[noteNumber]) {
       const actionStr = PAD_MAP[noteNumber];
       const [type, key] = actionStr.split(':');
       onAction(type, key);
-    } else {
-      console.log(`[MIDI] Unmapped Note On: ${noteNumber}`);
     }
   }
 
@@ -130,15 +165,48 @@ function handleMIDIMessage(message, onParameterChange, onAction) {
   if (command === 11) {
     const ccNumber = data1;
     const value = data2; // 0-127
+
+    // Check if it's a CC Button (e.g. Left, Right, Play, Pause, Record)
+    if (CC_BUTTON_MAP[ccNumber] && value > 0) {
+      const actionStr = CC_BUTTON_MAP[ccNumber];
+      const [type, key] = actionStr.split(':');
+      onAction(type, key);
+      return;
+    }
     
     if (CC_MAP[ccNumber]) {
       const paramKey = CC_MAP[ccNumber];
       const range = RANGES[paramKey];
       if (range) {
-        // e.g. cpm and transpose are integers
-        const isInt = paramKey === 'cpm' || paramKey === 'transpose' || paramKey.endsWith('Lpf');
-        const scaledVal = scaleCC(value, range[0], range[1], isInt);
-        onParameterChange(paramKey, scaledVal);
+        // Initialize baseline to prevent jumping on the very first tweak
+        if (lastCcValue[ccNumber] === undefined) {
+          lastCcValue[ccNumber] = value;
+          return; 
+        }
+
+        let delta = value - lastCcValue[ccNumber];
+        lastCcValue[ccNumber] = value;
+        
+        // Endless encoder wrap-around detection (optional, handles if the hardware loops 0 <-> 127)
+        if (delta > 63) delta -= 128;
+        if (delta < -63) delta += 128;
+
+        if (delta !== 0) {
+          const isInt = paramKey === 'cpm' || paramKey === 'transpose' || paramKey.endsWith('Lpf');
+          const stepSize = (range[1] - range[0]) / 127;
+          
+          let currentVal = getState ? getState(paramKey) : undefined;
+          if (currentVal === undefined) currentVal = range[0];
+          
+          let newVal = currentVal + (delta * stepSize);
+          
+          // Clamp to boundaries
+          newVal = Math.max(range[0], Math.min(range[1], newVal));
+          
+          if (isInt) newVal = Math.round(newVal);
+          
+          onParameterChange(paramKey, newVal);
+        }
       }
     } else {
       console.log(`[MIDI] Unmapped CC: ${ccNumber} (Value: ${value})`);

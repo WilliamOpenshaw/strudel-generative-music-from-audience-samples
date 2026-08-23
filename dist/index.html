@@ -7,11 +7,11 @@
     <title>Strudel Dashboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <!-- strudel-editor component is registered by the npm @strudel/repl package -->
-    <script type="module" crossorigin src="/assets/main-BeQ57tMN.js"></script>
+    <script type="module" crossorigin src="/assets/main-CsTIlQd5.js"></script>
     <link rel="modulepreload" crossorigin href="/assets/protocol-D7lvXZsz.js">
-    <link rel="stylesheet" crossorigin href="/assets/main-C0u54vdo.css">
+    <link rel="stylesheet" crossorigin href="/assets/main-B69yNAYM.css">
   </head>
   <body>
     <div class="app-layout">
@@ -215,7 +215,7 @@
           <label>Melody</label>
           <button id="melody-density-half" type="button" aria-label="Halve melody notes">÷2</button>
           <button id="melody-density-down" type="button" aria-label="Fewer melody notes">−</button>
-          <div id="melody-density-display">16</div>
+          <div id="melody-density-display">8</div>
           <button id="melody-density-up" type="button" aria-label="More melody notes">+</button>
           <button id="melody-density-double" type="button" aria-label="Double melody notes">×2</button>
         </div>
@@ -223,7 +223,7 @@
           <label>Bass</label>
           <button id="bass-density-half" type="button" aria-label="Halve bass notes">÷2</button>
           <button id="bass-density-down" type="button" aria-label="Fewer bass notes">−</button>
-          <div id="bass-density-display">16</div>
+          <div id="bass-density-display">8</div>
           <button id="bass-density-up" type="button" aria-label="More bass notes">+</button>
           <button id="bass-density-double" type="button" aria-label="Double bass notes">×2</button>
         </div>
@@ -231,7 +231,7 @@
           <label>Drums</label>
           <button id="drums-density-half" type="button" aria-label="Halve drum elements">÷2</button>
           <button id="drums-density-down" type="button" aria-label="Fewer drum elements">−</button>
-          <div id="drums-density-display">16</div>
+          <div id="drums-density-display">8</div>
           <button id="drums-density-up" type="button" aria-label="More drum elements">+</button>
           <button id="drums-density-double" type="button" aria-label="Double drum elements">×2</button>
         </div>
@@ -242,8 +242,8 @@
         <span>Gains</span>
         <div>
           <label for="drums-gain-slider" class="sr-only">Drums</label>
-          <input id="drums-gain-slider" type="range" min="0" max="1" step="0.01" value="0.1" />
-          <div id="drums-gain-slider-display">Drums: 0.10</div>
+          <input id="drums-gain-slider" type="range" min="0" max="1" step="0.01" value="0.5" />
+          <div id="drums-gain-slider-display">Drums: 0.50</div>
         </div>
         <div>
           <label for="chords-gain-slider" class="sr-only">Chords</label>
@@ -263,33 +263,252 @@
       </section>
 
       <!-- Effects -->
-      <section class="effects" aria-label="Effects">
+      <section class="effects-comprehensive" aria-label="Effects">
         <span>Effects</span>
-        <div>
-          <label for="chords-lpf-slider" class="sr-only">Chords LPF</label>
-          <input id="chords-lpf-slider" type="range" min="100" max="5000" step="100" value="1100" />
-          <div id="chords-lpf-slider-display">Chords LPF: 1100 Hz</div>
-        </div>
-        <div>
-          <label for="chords-room-slider" class="sr-only">Chords Room</label>
-          <input id="chords-room-slider" type="range" min="0" max="1" step="0.05" value="0.4" />
-          <div id="chords-room-slider-display">Chords Room: 0.40</div>
-        </div>
-        <div>
-          <label for="bass-lpf-slider" class="sr-only">Bass LPF</label>
-          <input id="bass-lpf-slider" type="range" min="100" max="2000" step="50" value="500" />
-          <div id="bass-lpf-slider-display">Bass LPF: 500 Hz</div>
-        </div>
-        <div>
-          <label for="melody-delay-slider" class="sr-only">Lead Delay</label>
-          <input id="melody-delay-slider" type="range" min="0" max="1" step="0.05" value="0.3" />
-          <div id="melody-delay-slider-display">Lead Delay: 0.30</div>
+        <div class="effects-accordion">
+          <details class="effect-track-details" open>
+            <summary>
+              <span class="summary-title">Lead Effects</span>
+              <button id="reset-melody-effects" type="button" class="btn-sm reset-effects-btn" aria-label="Reset Lead Effects" title="Reset to defaults">↺ Reset</button>
+            </summary>
+            <div class="effect-controls-grid">
+              <div class="effect-ctrl">
+                <label for="melody-pan-slider">Pan</label>
+                <input id="melody-pan-slider" type="range" min="0" max="1" step="0.05" value="0.5" />
+                <div id="melody-pan-slider-display">0.50</div>
+              </div>
+              <div class="effect-ctrl">
+                <label for="melody-delay-slider">Delay</label>
+                <input id="melody-delay-slider" type="range" min="0" max="1" step="0.05" value="0.3" />
+                <div id="melody-delay-slider-display">0.30</div>
+              </div>
+              <div class="effect-ctrl">
+                <label for="melody-lpf-slider">LPF</label>
+                <input id="melody-lpf-slider" type="range" min="100" max="20000" step="100" value="20000" />
+                <div id="melody-lpf-slider-display">20000</div>
+              </div>
+              <div class="effect-ctrl">
+                <label for="melody-hpf-slider">HPF</label>
+                <input id="melody-hpf-slider" type="range" min="0" max="10000" step="100" value="0" />
+                <div id="melody-hpf-slider-display">0</div>
+              </div>
+              <div class="effect-ctrl">
+                <label for="melody-room-slider">Reverb</label>
+                <input id="melody-room-slider" type="range" min="0" max="1" step="0.05" value="0" />
+                <div id="melody-room-slider-display">0.00</div>
+              </div>
+              <div class="effect-ctrl">
+                <label for="melody-distort-slider">Distort</label>
+                <input id="melody-distort-slider" type="range" min="0" max="1" step="0.05" value="0" />
+                <div id="melody-distort-slider-display">0.00</div>
+              </div>
+              <div class="effect-ctrl">
+                <label for="melody-attack-slider">Attack</label>
+                <input id="melody-attack-slider" type="range" min="0.0" max="1" step="0.01" value="0.01" />
+                <div id="melody-attack-slider-display">0.01</div>
+              </div>
+              <div class="effect-ctrl">
+                <label for="melody-decay-slider">Decay</label>
+                <input id="melody-decay-slider" type="range" min="0.0" max="1" step="0.01" value="0.1" />
+                <div id="melody-decay-slider-display">0.10</div>
+              </div>
+              <div class="effect-ctrl">
+                <label for="melody-sustain-slider">Sustain</label>
+                <input id="melody-sustain-slider" type="range" min="0.0" max="1" step="0.01" value="1.0" />
+                <div id="melody-sustain-slider-display">1.00</div>
+              </div>
+              <div class="effect-ctrl">
+                <label for="melody-release-slider">Release</label>
+                <input id="melody-release-slider" type="range" min="0.0" max="2" step="0.01" value="0.1" />
+                <div id="melody-release-slider-display">0.10</div>
+              </div>
+            </div>
+          </details>
+          <details class="effect-track-details">
+            <summary>
+              <span class="summary-title">Chords Effects</span>
+              <button id="reset-chords-effects" type="button" class="btn-sm reset-effects-btn" aria-label="Reset Chords Effects" title="Reset to defaults">↺ Reset</button>
+            </summary>
+            <div class="effect-controls-grid">
+              <div class="effect-ctrl">
+                <label for="chords-pan-slider">Pan</label>
+                <input id="chords-pan-slider" type="range" min="0" max="1" step="0.05" value="0.5" />
+                <div id="chords-pan-slider-display">0.50</div>
+              </div>
+              <div class="effect-ctrl">
+                <label for="chords-delay-slider">Delay</label>
+                <input id="chords-delay-slider" type="range" min="0" max="1" step="0.05" value="0" />
+                <div id="chords-delay-slider-display">0.00</div>
+              </div>
+              <div class="effect-ctrl">
+                <label for="chords-lpf-slider">LPF</label>
+                <input id="chords-lpf-slider" type="range" min="100" max="20000" step="100" value="1100" />
+                <div id="chords-lpf-slider-display">1100</div>
+              </div>
+              <div class="effect-ctrl">
+                <label for="chords-hpf-slider">HPF</label>
+                <input id="chords-hpf-slider" type="range" min="0" max="10000" step="100" value="0" />
+                <div id="chords-hpf-slider-display">0</div>
+              </div>
+              <div class="effect-ctrl">
+                <label for="chords-room-slider">Reverb</label>
+                <input id="chords-room-slider" type="range" min="0" max="1" step="0.05" value="0.4" />
+                <div id="chords-room-slider-display">0.40</div>
+              </div>
+              <div class="effect-ctrl">
+                <label for="chords-distort-slider">Distort</label>
+                <input id="chords-distort-slider" type="range" min="0" max="1" step="0.05" value="0" />
+                <div id="chords-distort-slider-display">0.00</div>
+              </div>
+              <div class="effect-ctrl">
+                <label for="chords-attack-slider">Attack</label>
+                <input id="chords-attack-slider" type="range" min="0.0" max="1" step="0.01" value="0.01" />
+                <div id="chords-attack-slider-display">0.01</div>
+              </div>
+              <div class="effect-ctrl">
+                <label for="chords-decay-slider">Decay</label>
+                <input id="chords-decay-slider" type="range" min="0.0" max="1" step="0.01" value="0.1" />
+                <div id="chords-decay-slider-display">0.10</div>
+              </div>
+              <div class="effect-ctrl">
+                <label for="chords-sustain-slider">Sustain</label>
+                <input id="chords-sustain-slider" type="range" min="0.0" max="1" step="0.01" value="1.0" />
+                <div id="chords-sustain-slider-display">1.00</div>
+              </div>
+              <div class="effect-ctrl">
+                <label for="chords-release-slider">Release</label>
+                <input id="chords-release-slider" type="range" min="0.0" max="2" step="0.01" value="0.1" />
+                <div id="chords-release-slider-display">0.10</div>
+              </div>
+            </div>
+          </details>
+          <details class="effect-track-details">
+            <summary>
+              <span class="summary-title">Bass Effects</span>
+              <button id="reset-bass-effects" type="button" class="btn-sm reset-effects-btn" aria-label="Reset Bass Effects" title="Reset to defaults">↺ Reset</button>
+            </summary>
+            <div class="effect-controls-grid">
+              <div class="effect-ctrl">
+                <label for="bass-pan-slider">Pan</label>
+                <input id="bass-pan-slider" type="range" min="0" max="1" step="0.05" value="0.5" />
+                <div id="bass-pan-slider-display">0.50</div>
+              </div>
+              <div class="effect-ctrl">
+                <label for="bass-delay-slider">Delay</label>
+                <input id="bass-delay-slider" type="range" min="0" max="1" step="0.05" value="0" />
+                <div id="bass-delay-slider-display">0.00</div>
+              </div>
+              <div class="effect-ctrl">
+                <label for="bass-lpf-slider">LPF</label>
+                <input id="bass-lpf-slider" type="range" min="100" max="20000" step="100" value="500" />
+                <div id="bass-lpf-slider-display">500</div>
+              </div>
+              <div class="effect-ctrl">
+                <label for="bass-hpf-slider">HPF</label>
+                <input id="bass-hpf-slider" type="range" min="0" max="10000" step="100" value="0" />
+                <div id="bass-hpf-slider-display">0</div>
+              </div>
+              <div class="effect-ctrl">
+                <label for="bass-room-slider">Reverb</label>
+                <input id="bass-room-slider" type="range" min="0" max="1" step="0.05" value="0" />
+                <div id="bass-room-slider-display">0.00</div>
+              </div>
+              <div class="effect-ctrl">
+                <label for="bass-distort-slider">Distort</label>
+                <input id="bass-distort-slider" type="range" min="0" max="1" step="0.05" value="0" />
+                <div id="bass-distort-slider-display">0.00</div>
+              </div>
+              <div class="effect-ctrl">
+                <label for="bass-attack-slider">Attack</label>
+                <input id="bass-attack-slider" type="range" min="0.0" max="1" step="0.01" value="0.01" />
+                <div id="bass-attack-slider-display">0.01</div>
+              </div>
+              <div class="effect-ctrl">
+                <label for="bass-decay-slider">Decay</label>
+                <input id="bass-decay-slider" type="range" min="0.0" max="1" step="0.01" value="0.1" />
+                <div id="bass-decay-slider-display">0.10</div>
+              </div>
+              <div class="effect-ctrl">
+                <label for="bass-sustain-slider">Sustain</label>
+                <input id="bass-sustain-slider" type="range" min="0.0" max="1" step="0.01" value="1.0" />
+                <div id="bass-sustain-slider-display">1.00</div>
+              </div>
+              <div class="effect-ctrl">
+                <label for="bass-release-slider">Release</label>
+                <input id="bass-release-slider" type="range" min="0.0" max="2" step="0.01" value="0.1" />
+                <div id="bass-release-slider-display">0.10</div>
+              </div>
+            </div>
+          </details>
+          <details class="effect-track-details">
+            <summary>
+              <span class="summary-title">Drums Effects</span>
+              <button id="reset-drums-effects" type="button" class="btn-sm reset-effects-btn" aria-label="Reset Drums Effects" title="Reset to defaults">↺ Reset</button>
+            </summary>
+            <div class="effect-controls-grid">
+              <div class="effect-ctrl">
+                <label for="drums-pan-slider">Pan</label>
+                <input id="drums-pan-slider" type="range" min="0" max="1" step="0.05" value="0.5" />
+                <div id="drums-pan-slider-display">0.50</div>
+              </div>
+              <div class="effect-ctrl">
+                <label for="drums-delay-slider">Delay</label>
+                <input id="drums-delay-slider" type="range" min="0" max="1" step="0.05" value="0" />
+                <div id="drums-delay-slider-display">0.00</div>
+              </div>
+              <div class="effect-ctrl">
+                <label for="drums-lpf-slider">LPF</label>
+                <input id="drums-lpf-slider" type="range" min="100" max="20000" step="100" value="20000" />
+                <div id="drums-lpf-slider-display">20000</div>
+              </div>
+              <div class="effect-ctrl">
+                <label for="drums-hpf-slider">HPF</label>
+                <input id="drums-hpf-slider" type="range" min="0" max="10000" step="100" value="0" />
+                <div id="drums-hpf-slider-display">0</div>
+              </div>
+              <div class="effect-ctrl">
+                <label for="drums-room-slider">Reverb</label>
+                <input id="drums-room-slider" type="range" min="0" max="1" step="0.05" value="0" />
+                <div id="drums-room-slider-display">0.00</div>
+              </div>
+              <div class="effect-ctrl">
+                <label for="drums-distort-slider">Distort</label>
+                <input id="drums-distort-slider" type="range" min="0" max="1" step="0.05" value="0" />
+                <div id="drums-distort-slider-display">0.00</div>
+              </div>
+              <div class="effect-ctrl">
+                <label for="drums-attack-slider">Attack</label>
+                <input id="drums-attack-slider" type="range" min="0.0" max="1" step="0.01" value="0.01" />
+                <div id="drums-attack-slider-display">0.01</div>
+              </div>
+              <div class="effect-ctrl">
+                <label for="drums-decay-slider">Decay</label>
+                <input id="drums-decay-slider" type="range" min="0.0" max="1" step="0.01" value="0.1" />
+                <div id="drums-decay-slider-display">0.10</div>
+              </div>
+              <div class="effect-ctrl">
+                <label for="drums-sustain-slider">Sustain</label>
+                <input id="drums-sustain-slider" type="range" min="0.0" max="1" step="0.01" value="1.0" />
+                <div id="drums-sustain-slider-display">1.00</div>
+              </div>
+              <div class="effect-ctrl">
+                <label for="drums-release-slider">Release</label>
+                <input id="drums-release-slider" type="range" min="0.0" max="2" step="0.01" value="0.1" />
+                <div id="drums-release-slider-display">0.10</div>
+              </div>
+            </div>
+          </details>
         </div>
       </section>
 
       <!-- Sample Recording -->
       <section class="sample-recording" aria-label="Sample Recording">
         <span>Record Mic</span>
+        <div class="mic-device-row" id="mic-device-row">
+          <span class="mic-icon">🎤</span>
+          <span class="mic-label">Input:</span>
+          <span id="record-mic-name" class="mic-name-display" title="Current microphone">Detecting microphone...</span>
+        </div>
         <div class="recording-controls">
           <select id="record-layer-select">
             <option value="audience_lead">Lead</option>
@@ -366,14 +585,16 @@
           </div>
 
           <div class="editor-row editor-toggles">
-            <label class="lock-toggle">
-              <input type="checkbox" id="editor-normalize" checked />
-              <span>Normalize</span>
-            </label>
-            <label class="lock-toggle">
-              <input type="checkbox" id="editor-tune-c" checked />
-              <span>Tune to C</span>
-            </label>
+            <div class="editor-toggle-group">
+              <label class="editor-toggle">
+                <input type="checkbox" id="editor-normalize" checked />
+                <span>Normalize</span>
+              </label>
+              <label class="editor-toggle">
+                <input type="checkbox" id="editor-tune-c" checked />
+                <span>Tune to C</span>
+              </label>
+            </div>
             <button id="editor-reanalyze-btn" type="button" class="btn-sm" title="Re-analyze pitch">🔍 Analyze Pitch</button>
           </div>
 
@@ -478,10 +699,17 @@
         <div class="editor-panel-header">
           <span class="editor-panel-label">🎹 Live Code Editor &amp; Piano Roll</span>
           <span class="editor-panel-hint">Edit code below &amp; press Ctrl+Enter to apply</span>
+          <div class="editor-toolbar" style="margin-left:auto; display:flex; gap:0.5rem;">
+            <button id="editor-wrap-btn" type="button" class="btn-sm" aria-label="Toggle Text Wrap" title="Toggle Wrap">Wrap</button>
+            <button id="editor-zoom-out-btn" type="button" class="btn-sm" aria-label="Zoom Out" title="Zoom Out">-</button>
+            <button id="editor-zoom-in-btn" type="button" class="btn-sm" aria-label="Zoom In" title="Zoom In">+</button>
+          </div>
         </div>
         <!-- #test-canvas is the piano roll canvas — @strudel/draw's getDrawContext() looks
              for this exact id. Without it, it creates a full-screen overlay instead. -->
-        <canvas id="test-canvas" aria-label="Piano Roll Visualizer"></canvas>
+        <div class="piano-roll-wrapper" style="resize: vertical; overflow: hidden; display: flex; flex-direction: column; min-height: 120px; max-height: 80vh;">
+          <canvas id="test-canvas" aria-label="Piano Roll Visualizer" style="flex: 1; width: 100%; height: 100%;"></canvas>
+        </div>
         <!-- strudel-editor injects its real CodeMirror container as the next sibling inside
              .repl-host. The <strudel-editor> element itself is display:none. -->
         <div class="repl-host">
@@ -489,6 +717,6 @@
         </div>
       </aside>
     </div>
-
+
   </body>
 </html>

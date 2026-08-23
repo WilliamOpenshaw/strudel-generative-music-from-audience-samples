@@ -127,7 +127,7 @@ main {
   width: 100%;
   flex: 0 0 200px;
   min-height: 120px;
-  max-height: 40%;
+  max-height: 80%;
   background: #0a0c10;
   border-bottom: 1px solid var(--border-subtle);
 }
@@ -946,7 +946,7 @@ section > div[id$='-display'] {
   gap: 0.75rem;
 }
 
-.editor-row > label {
+.editor-row > label:not(.editor-toggle) {
   width: 80px;
   font-size: 0.75rem;
   font-weight: 600;
@@ -954,6 +954,77 @@ section > div[id$='-display'] {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   flex-shrink: 0;
+}
+
+.editor-toggles {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  width: 100%;
+}
+
+.editor-toggle-group {
+  display: flex;
+  align-items: center;
+  gap: 1.75rem;
+  flex-wrap: nowrap;
+}
+
+.editor-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+  width: auto !important;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.editor-toggle input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--border-subtle);
+  border-radius: 4px;
+  background: var(--bg-surface);
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.editor-toggle input[type='checkbox']:checked {
+  background: rgba(108, 140, 255, 0.25);
+  border-color: var(--accent);
+}
+
+.editor-toggle input[type='checkbox']:checked::after {
+  content: '✓';
+  position: absolute;
+  top: 0px;
+  left: 2px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--accent);
+}
+
+.editor-toggle span {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.editor-toggle input[type='checkbox']:checked + span {
+  color: var(--text-primary);
 }
 
 .adsr-sliders {
@@ -1334,3 +1405,140 @@ section > div[id$='-display'] {
 
 
 
+/* ─── Comprehensive Effects ──────────────────────── */
+.effects-comprehensive {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.effects-accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.effect-track-details {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 0.5rem;
+}
+
+.effect-track-details summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 0.5rem;
+  color: var(--accent);
+  user-select: none;
+  list-style: none; /* Hide default arrow in some browsers */
+}
+
+.effect-track-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.effect-track-details summary::before {
+  content: '▶';
+  display: inline-block;
+  margin-right: 0.5rem;
+  transition: transform var(--transition-fast);
+  font-size: 0.8em;
+}
+
+.effect-track-details[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.effect-controls-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1rem;
+  padding: 1rem 0.5rem 0.5rem;
+  border-top: 1px solid var(--border-subtle);
+  margin-top: 0.5rem;
+}
+
+.effect-ctrl {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.effect-ctrl label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.effect-ctrl input[type="range"] {
+  width: 100%;
+}
+
+.effect-ctrl div[id$="-display"] {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.effect-track-details summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.reset-effects-btn {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  opacity: 0.8;
+}
+.reset-effects-btn:hover {
+  opacity: 1;
+}
+/* Editor Zoom & Wrap */
+:root {
+  --editor-font-size: 14px;
+}
+.repl-host {
+  font-size: var(--editor-font-size);
+}
+.repl-host.wrap-text .cm-content {
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
+}
+.repl-host.wrap-text .cm-line {
+  white-space: pre-wrap !important;
+}
+/* Force always-visible scrollbars in CodeMirror */
+.repl-host .cm-scroller {
+  overflow: scroll !important;
+}
+.cm-editor {
+  height: 100%;
+}
+.cm-scroller {
+  overflow: scroll !important;
+}
+.cm-content {
+  min-height: calc(100% + 1px) !important;
+  min-width: calc(100% + 1px) !important;
+}
+.repl-host .cm-editor {
+  font-size: var(--editor-font-size) !important;
+}
+.repl-host.wrap-text .cm-editor,
+.repl-host.wrap-text .cm-scroller,
+.repl-host.wrap-text .cm-content {
+  white-space: pre-wrap !important;
+  word-break: break-all !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+}
+.repl-host.wrap-text .cm-line {
+  white-space: pre-wrap !important;
+  word-break: break-all !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  display: inline-block;
+}

@@ -1,47 +1,62 @@
-# M-VAVE SMC-PAD MIDI Mapping
+# M-VAVE SMC-PAD Custom MIDI Mapping
 
-## 16 Pads Mapping
-*Assumed Notes 36 to 51 based on typical configuration*
+## Pad Bank 1 (Notes 1-16)
+- Pad 1 (Note 1): Toggle Drums Mute/Unmute
+- Pad 2 (Note 2): Toggle Chords Mute/Unmute
+- Pad 3 (Note 3): Toggle Bass Mute/Unmute
+- Pad 4 (Note 4): Toggle Melody Mute/Unmute
+- Pad 5 (Note 5): Randomize Drums Instrument
+- Pad 6 (Note 6): Randomize Chords Instrument
+- Pad 7 (Note 7): Randomize Bass Instrument
+- Pad 8 (Note 8): Randomize Lead/Melody Instrument
+- Pad 9 (Note 9): Regenerate All Layers
+- Pad 10 (Note 10): Regenerate Drums Layer
+- Pad 11 (Note 11): Regenerate Chords Layer
+- Pad 12 (Note 12): Regenerate Bass Layer
+- Pad 13 (Note 13): Regenerate Melody Layer
+- Pad 14 (Note 14): Pitch Transpose Down
+- Pad 15 (Note 15): Pitch Transpose Reset
+- Pad 16 (Note 16): Pitch Transpose Up
 
-**Original 8 Pads (Notes 36-43)**
-- Pad 1 (Note 36): Toggle Drums Mute/Unmute
-- Pad 2 (Note 37): Toggle Chords Mute/Unmute
-- Pad 3 (Note 38): Toggle Bass Mute/Unmute
-- Pad 4 (Note 39): Toggle Melody Mute/Unmute
-- Pad 5 (Note 40): Regenerate All Layers
-- Pad 6 (Note 41): Regenerate Chords Layer
-- Pad 7 (Note 42): Regenerate Bass Layer
-- Pad 8 (Note 43): Regenerate Melody Layer
+## Pad Bank 2 (Notes 21-36)
+- Pad 1 (Note 21): Reset All Effects
+- Pad 2 (Note 22): Reset Drums Effects
+- Pad 3 (Note 23): Reset Chords Effects
+- Pad 4 (Note 24): Reset Bass Effects
+- Pad 5 (Note 25): Reset Melody Effects
+- Pad 6 (Note 26): Halve Melody Density
+- Pad 7 (Note 27): Double Melody Density
+- Pad 8 (Note 28): Halve Bass Density
+- Pad 9 (Note 29): Double Bass Density
+- Pad 10 (Note 30): Halve Drums Density
+- Pad 11 (Note 31): Double Drums Density
+- Pad 12 (Note 32): Start Sample Recording
+- Pad 13 (Note 33): Stop Sample Recording
+- Pad 14-16 (Notes 34-36): Unassigned
 
-**Extra 8 Pads (Notes 44-51)**
-- Pad 9 (Note 44): Regenerate Drums Layer
-- Pad 10 (Note 45): Start Transport (Play)
-- Pad 11 (Note 46): Stop Transport
-- Pad 12 (Note 47): Randomize Drums Instrument
-- Pad 13 (Note 48): Randomize Chords Instrument
-- Pad 14 (Note 49): Randomize Bass Instrument
-- Pad 15 (Note 50): Randomize Lead/Melody Instrument
-- Pad 16 (Note 51): Stop Transport (Redundant/Fallback)
-
-## 16 Endless Encoders Mapping
-*Mapped to CC 1 through 12*
-
-**First 4 Encoders (CC 1-4)**
+## Encoders Bank 1 (CC 1-8)
 - Encoder 1 (CC 1): Master Gain
 - Encoder 2 (CC 2): Speed (Playback Rate)
 - Encoder 3 (CC 3): CPM (Tempo)
 - Encoder 4 (CC 4): Transpose
-
-**Next 4 Encoders (CC 5-8)**
 - Encoder 5 (CC 5): Drums Layer Gain
 - Encoder 6 (CC 6): Chords Layer Gain
 - Encoder 7 (CC 7): Bass Layer Gain
 - Encoder 8 (CC 8): Melody Layer Gain
 
-**Next 4 Encoders (CC 9-12)**
-- Encoder 9 (CC 9): Chords Low-Pass Filter (LPF)
-- Encoder 10 (CC 10): Chords Room Effect
-- Encoder 11 (CC 11): Bass Low-Pass Filter (LPF)
-- Encoder 12 (CC 12): Melody Delay Effect
+## Encoders Bank 2 (CC 9-16)
+- Encoder 1 (CC 9): Drums Room Effect
+- Encoder 2 (CC 10): Chords Room Effect
+- Encoder 3 (CC 11): Bass Room Effect
+- Encoder 4 (CC 12): Melody Room Effect
+- Encoder 5 (CC 13): Drums Low-Pass Filter (LPF)
+- Encoder 6 (CC 14): Chords Low-Pass Filter (LPF)
+- Encoder 7 (CC 15): Bass Low-Pass Filter (LPF)
+- Encoder 8 (CC 16): Melody Low-Pass Filter (LPF)
 
-*Note: Depending on your hardware editor, you may need to assign these MIDI Notes (36-51) and CCs (1-12) to the physical pads and encoders of your M-VAVE SMC-PADs using their configuration software.*
+## Transport / Direction Buttons (CC 25-29)
+- Left Button (CC 25): Pitch Transpose Down
+- Right Button (CC 26): Pitch Transpose Up
+- Play Button (CC 27): Start Transport (Play)
+- Pause Button (CC 28): Stop Transport (Pause)
+- Record Button (CC 29): Toggle Sample Record

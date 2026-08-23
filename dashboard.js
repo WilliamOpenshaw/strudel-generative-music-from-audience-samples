@@ -148,6 +148,21 @@ function drawPianoRollFrame(ctx, haps, time, cycles, playhead) {
 
     ctx.fillRect(x, y, w, h);
     ctx.strokeRect(x, y, w, h);
+    
+    // Draw Note Notation
+    const noteName = event.value.note ?? event.value.n ?? event.value.s ?? value;
+    if (noteName !== undefined && noteName !== null && w > 4) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(x, y, w, h);
+      ctx.clip();
+      ctx.fillStyle = isActive ? '#000' : '#fff';
+      ctx.font = `600 ${Math.max(8, Math.min(12, h - 2))}px Inter, monospace`;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(String(noteName), x + 2, y + h / 2);
+      ctx.restore();
+    }
   });
 
   // ── Playhead line ──
@@ -307,6 +322,45 @@ function handleAction(type, key) {
     if (key === 'bass') regenerate({ regenChords: false, regenMelody: false, regenBass: true, regenDrums: false });
     if (key === 'melody') regenerate({ regenChords: false, regenMelody: true, regenBass: false, regenDrums: false });
     if (key === 'drums') regenerate({ regenChords: false, regenMelody: false, regenBass: false, regenDrums: true });
+  } else if (type === 'transport') {
+    if (key === 'start') document.getElementById('start-btn')?.click();
+    if (key === 'stop') document.getElementById('stop-btn')?.click();
+  } else if (type === 'rand') {
+    document.getElementById(`rand-${key}`)?.click();
+  } else if (type === 'record') {
+    if (key === 'start') document.getElementById('record-btn')?.click();
+    if (key === 'stop') document.getElementById('stop-record-btn')?.click();
+    if (key === 'toggle') {
+      const startBtn = document.getElementById('record-btn');
+      if (startBtn && !startBtn.disabled && !startBtn.classList.contains('is-recording')) {
+        startBtn.click();
+      } else {
+        document.getElementById('stop-record-btn')?.click();
+      }
+    }
+  } else if (type === 'pitch') {
+    if (key === 'reset') {
+      state.transpose = 0;
+    } else {
+      state.transpose += (key === 'up' ? 1 : -1);
+    }
+    updateReadouts();
+    if (started) restartPattern();
+  } else if (type === 'effectReset') {
+    if (key === 'all') {
+      ['drums', 'chords', 'bass', 'melody'].forEach(track => document.getElementById(`reset-${track}-effects`)?.click());
+    } else {
+      document.getElementById(`reset-${key}-effects`)?.click();
+    }
+  } else if (type.startsWith('density')) {
+    const track = key;
+    const isHalf = type === 'densityHalf';
+    const stateKey = `${track}Density`;
+    if (state[stateKey]) {
+      state[stateKey] = isHalf ? Math.ceil(state[stateKey] / 2) : state[stateKey] * 2;
+      document.getElementById(`${track}-density-display`).innerText = state[stateKey];
+      debouncedRestart();
+    }
   }
 }
 
@@ -909,11 +963,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Initialize MIDI
   initMIDI({
+    getState: (key) => state[key],
     onParameterChange: updateParameter,
     onAction: handleAction,
     onStatusUpdate: (text) => {
       const el = document.getElementById('midi-status-display');
       if (el) el.innerText = text;
+    },
+    onRawMessage: (msg) => {
+      const el = document.getElementById('midi-last-cmd-display');
+      if (el) el.innerText = `Last MIDI: ${msg}`;
     }
   });
 
@@ -928,11 +987,47 @@ document.addEventListener('DOMContentLoaded', () => {
   bindSlider('bass-gain-slider', 'bassGain', (v) => `Bass: ${v.toFixed(2)}`);
   bindSlider('melody-gain-slider', 'melodyGain', (v) => `Lead: ${v.toFixed(2)}`);
 
-  // Effects
-  bindSlider('chords-lpf-slider', 'chordsLpf', (v) => `Chords LPF: ${v} Hz`, { integer: true });
-  bindSlider('chords-room-slider', 'chordsRoom', (v) => `Chords Room: ${v.toFixed(2)}`);
-  bindSlider('bass-lpf-slider', 'bassLpf', (v) => `Bass LPF: ${v} Hz`, { integer: true });
-  bindSlider('melody-delay-slider', 'melodyDelay', (v) => `Lead Delay: ${v.toFixed(2)}`);
+  // Comprehensive Track Effects
+  bindSlider('melody-pan-slider', 'melodyPan', (v) => `${v.toFixed(2)}`);
+  bindSlider('melody-delay-slider', 'melodyDelay', (v) => `${v.toFixed(2)}`);
+  bindSlider('melody-lpf-slider', 'melodyLpf', (v) => `${v}`, { integer: true });
+  bindSlider('melody-hpf-slider', 'melodyHpf', (v) => `${v}`, { integer: true });
+  bindSlider('melody-room-slider', 'melodyRoom', (v) => `${v.toFixed(2)}`);
+  bindSlider('melody-distort-slider', 'melodyDistort', (v) => `${v.toFixed(2)}`);
+  bindSlider('melody-attack-slider', 'melodyAttack', (v) => `${v.toFixed(2)}`);
+  bindSlider('melody-decay-slider', 'melodyDecay', (v) => `${v.toFixed(2)}`);
+  bindSlider('melody-sustain-slider', 'melodySustain', (v) => `${v.toFixed(2)}`);
+  bindSlider('melody-release-slider', 'melodyRelease', (v) => `${v.toFixed(2)}`);
+  bindSlider('chords-pan-slider', 'chordsPan', (v) => `${v.toFixed(2)}`);
+  bindSlider('chords-delay-slider', 'chordsDelay', (v) => `${v.toFixed(2)}`);
+  bindSlider('chords-lpf-slider', 'chordsLpf', (v) => `${v}`, { integer: true });
+  bindSlider('chords-hpf-slider', 'chordsHpf', (v) => `${v}`, { integer: true });
+  bindSlider('chords-room-slider', 'chordsRoom', (v) => `${v.toFixed(2)}`);
+  bindSlider('chords-distort-slider', 'chordsDistort', (v) => `${v.toFixed(2)}`);
+  bindSlider('chords-attack-slider', 'chordsAttack', (v) => `${v.toFixed(2)}`);
+  bindSlider('chords-decay-slider', 'chordsDecay', (v) => `${v.toFixed(2)}`);
+  bindSlider('chords-sustain-slider', 'chordsSustain', (v) => `${v.toFixed(2)}`);
+  bindSlider('chords-release-slider', 'chordsRelease', (v) => `${v.toFixed(2)}`);
+  bindSlider('bass-pan-slider', 'bassPan', (v) => `${v.toFixed(2)}`);
+  bindSlider('bass-delay-slider', 'bassDelay', (v) => `${v.toFixed(2)}`);
+  bindSlider('bass-lpf-slider', 'bassLpf', (v) => `${v}`, { integer: true });
+  bindSlider('bass-hpf-slider', 'bassHpf', (v) => `${v}`, { integer: true });
+  bindSlider('bass-room-slider', 'bassRoom', (v) => `${v.toFixed(2)}`);
+  bindSlider('bass-distort-slider', 'bassDistort', (v) => `${v.toFixed(2)}`);
+  bindSlider('bass-attack-slider', 'bassAttack', (v) => `${v.toFixed(2)}`);
+  bindSlider('bass-decay-slider', 'bassDecay', (v) => `${v.toFixed(2)}`);
+  bindSlider('bass-sustain-slider', 'bassSustain', (v) => `${v.toFixed(2)}`);
+  bindSlider('bass-release-slider', 'bassRelease', (v) => `${v.toFixed(2)}`);
+  bindSlider('drums-pan-slider', 'drumsPan', (v) => `${v.toFixed(2)}`);
+  bindSlider('drums-delay-slider', 'drumsDelay', (v) => `${v.toFixed(2)}`);
+  bindSlider('drums-lpf-slider', 'drumsLpf', (v) => `${v}`, { integer: true });
+  bindSlider('drums-hpf-slider', 'drumsHpf', (v) => `${v}`, { integer: true });
+  bindSlider('drums-room-slider', 'drumsRoom', (v) => `${v.toFixed(2)}`);
+  bindSlider('drums-distort-slider', 'drumsDistort', (v) => `${v.toFixed(2)}`);
+  bindSlider('drums-attack-slider', 'drumsAttack', (v) => `${v.toFixed(2)}`);
+  bindSlider('drums-decay-slider', 'drumsDecay', (v) => `${v.toFixed(2)}`);
+  bindSlider('drums-sustain-slider', 'drumsSustain', (v) => `${v.toFixed(2)}`);
+  bindSlider('drums-release-slider', 'drumsRelease', (v) => `${v.toFixed(2)}`);
 
   // Layer mutes
   bindToggle('toggle-drums', 'drumsOn');
@@ -943,6 +1038,69 @@ document.addEventListener('DOMContentLoaded', () => {
   // Transpose (Global + Per-track independent)
   bindTransposeControls();
   bindTrackPitchControls();
+
+
+  // ── Editor Zoom & Wrap ──────────────────────────────────
+  const wrapBtn = document.getElementById('editor-wrap-btn');
+  const zoomInBtn = document.getElementById('editor-zoom-in-btn');
+  const zoomOutBtn = document.getElementById('editor-zoom-out-btn');
+  const replHost = document.querySelector('.repl-host');
+  let currentFontSize = 14;
+
+  if (wrapBtn && replHost) {
+    wrapBtn.addEventListener('click', () => {
+      replHost.classList.toggle('wrap-text');
+      wrapBtn.classList.toggle('active');
+    });
+  }
+  if (zoomInBtn && replHost) {
+    zoomInBtn.addEventListener('click', () => {
+      currentFontSize = Math.min(32, currentFontSize + 2);
+      document.documentElement.style.setProperty('--editor-font-size', `${currentFontSize}px`);
+    });
+  }
+  if (zoomOutBtn && replHost) {
+    zoomOutBtn.addEventListener('click', () => {
+      currentFontSize = Math.max(8, currentFontSize - 2);
+      document.documentElement.style.setProperty('--editor-font-size', `${currentFontSize}px`);
+    });
+  }
+
+  // ── Effect Resets ─────────────────────────────
+  function setupEffectResets() {
+    const defaults = {
+      drums: { Pan: 0.5, Delay: 0, Lpf: 20000, Hpf: 0, Room: 0, Distort: 0, Attack: 0.01, Decay: 0.1, Sustain: 1.0, Release: 0.1 },
+      chords: { Pan: 0.5, Delay: 0, Lpf: 1100, Hpf: 0, Room: 0.4, Distort: 0, Attack: 0.01, Decay: 0.1, Sustain: 1.0, Release: 0.1 },
+      bass: { Pan: 0.5, Delay: 0, Lpf: 500, Hpf: 0, Room: 0, Distort: 0, Attack: 0.01, Decay: 0.1, Sustain: 1.0, Release: 0.1 },
+      melody: { Pan: 0.5, Delay: 0.3, Lpf: 20000, Hpf: 0, Room: 0, Distort: 0, Attack: 0.01, Decay: 0.1, Sustain: 1.0, Release: 0.1 }
+    };
+    
+    ['drums', 'chords', 'bass', 'melody'].forEach(track => {
+      const btn = document.getElementById(`reset-${track}-effects`);
+      if (btn) {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation(); // prevent accordion toggle
+          e.preventDefault();
+          
+          const trackDefs = defaults[track];
+          for (const [key, val] of Object.entries(trackDefs)) {
+            state[`${track}${key}`] = val;
+            
+            // update slider UI
+            const input = document.getElementById(`${track}-${key.toLowerCase()}-slider`);
+            if (input) {
+              input.value = val;
+              // trigger input event to update display
+              input.dispatchEvent(new Event('input'));
+            }
+          }
+          debouncedRestart();
+        });
+      }
+    });
+  }
+  setupEffectResets();
+
 
   // ── Time signature select ─────────────────────────
   const timeSigSelect = document.getElementById('time-sig-select');
@@ -1068,4 +1226,3 @@ document.addEventListener('DOMContentLoaded', () => {
   updateReadouts();
   setInterval(updateReadouts, 1000);
 });
-
