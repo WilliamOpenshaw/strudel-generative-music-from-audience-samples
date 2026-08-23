@@ -101,14 +101,10 @@ export function getAllSamples() {
 export function applyCatalogToState(state) {
   if (!state.sampleBanks) {
     state.sampleBanks = {
-      lead: null,
-      bass: null,
-      chord: null,
-      drum: null,
+      lead: 'triangle',
+      bass: 'sawtooth',
+      chord: 'sawtooth',
+      drum: 'RolandTR909',
     };
   }
-  if (sampleAvailability.lead && !state.sampleBanks.lead) state.sampleBanks.lead = 'audience_lead';
-  if (sampleAvailability.bass && !state.sampleBanks.bass) state.sampleBanks.bass = 'audience_bass';
-  if (sampleAvailability.chord && !state.sampleBanks.chord) state.sampleBanks.chord = 'audience_chord';
-  if (sampleAvailability.drum && !state.sampleBanks.drum) state.sampleBanks.drum = 'audience_drum';
 }

@@ -14,10 +14,10 @@ export const state = {
   status: 'Stopped',
   
   // Per-layer gain
-  drumsGain: 0.5,
-  chordsGain: 0.9,
-  bassGain: 0.15,
-  melodyGain: 0.5,
+  drumsGain: 0.50,
+  chordsGain: 0.20,
+  bassGain: 1.00,
+  melodyGain: 1.00,
 
   // Per-layer effects
   chordsLpf: 1100,
@@ -40,9 +40,9 @@ export const state = {
   drumsOctave: 0,
 
   // Note density — target number of note/silence elements per generation
-  melodyDensity: 16,
-  bassDensity: 16,
-  drumsDensity: 16,
+  melodyDensity: 8,
+  bassDensity: 8,
+  drumsDensity: 8,
 
   // Time signature
   timeSigNum: 4,
@@ -53,15 +53,15 @@ export const state = {
     lead: 'triangle',
     bass: 'sawtooth',
     chord: 'sawtooth',
-    drum: 'default',
+    drum: 'RolandTR909',
   },
 
   // Active sample banks / sound names
   sampleBanks: {
-    lead: null,
-    bass: null,
-    chord: null,
-    drum: null,
+    lead: 'triangle',
+    bass: 'sawtooth',
+    chord: 'sawtooth',
+    drum: 'RolandTR909',
   },
 };
 

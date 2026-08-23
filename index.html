@@ -213,7 +213,7 @@
           <label>Melody</label>
           <button id="melody-density-half" type="button" aria-label="Halve melody notes">÷2</button>
           <button id="melody-density-down" type="button" aria-label="Fewer melody notes">−</button>
-          <div id="melody-density-display">16</div>
+          <div id="melody-density-display">8</div>
           <button id="melody-density-up" type="button" aria-label="More melody notes">+</button>
           <button id="melody-density-double" type="button" aria-label="Double melody notes">×2</button>
         </div>
@@ -221,7 +221,7 @@
           <label>Bass</label>
           <button id="bass-density-half" type="button" aria-label="Halve bass notes">÷2</button>
           <button id="bass-density-down" type="button" aria-label="Fewer bass notes">−</button>
-          <div id="bass-density-display">16</div>
+          <div id="bass-density-display">8</div>
           <button id="bass-density-up" type="button" aria-label="More bass notes">+</button>
           <button id="bass-density-double" type="button" aria-label="Double bass notes">×2</button>
         </div>
@@ -229,7 +229,7 @@
           <label>Drums</label>
           <button id="drums-density-half" type="button" aria-label="Halve drum elements">÷2</button>
           <button id="drums-density-down" type="button" aria-label="Fewer drum elements">−</button>
-          <div id="drums-density-display">16</div>
+          <div id="drums-density-display">8</div>
           <button id="drums-density-up" type="button" aria-label="More drum elements">+</button>
           <button id="drums-density-double" type="button" aria-label="Double drum elements">×2</button>
         </div>
@@ -288,6 +288,11 @@
       <!-- Sample Recording -->
       <section class="sample-recording" aria-label="Sample Recording">
         <span>Record Mic</span>
+        <div class="mic-device-row" id="mic-device-row">
+          <span class="mic-icon">🎤</span>
+          <span class="mic-label">Input:</span>
+          <span id="record-mic-name" class="mic-name-display" title="Current microphone">Detecting microphone...</span>
+        </div>
         <div class="recording-controls">
           <select id="record-layer-select">
             <option value="audience_lead">Lead</option>

@@ -13,6 +13,46 @@ let mediaRecorder = null;
 let audioChunks = [];
 let recordStream = null;
 
+/**
+ * Query available audio input devices and update the microphone name readout.
+ * If an active audio track is provided, its label takes precedence.
+ */
+async function updateMicInfo(activeTrack = null) {
+  const micNameEl = document.getElementById('record-mic-name');
+  if (!micNameEl) return;
+
+  if (activeTrack && activeTrack.label) {
+    micNameEl.textContent = activeTrack.label;
+    micNameEl.title = activeTrack.label;
+    return;
+  }
+
+  if (!navigator.mediaDevices?.enumerateDevices) {
+    micNameEl.textContent = 'Default Microphone';
+    micNameEl.title = 'Default audio input device';
+    return;
+  }
+
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const audioInputs = devices.filter((d) => d.kind === 'audioinput');
+    const defaultMic = audioInputs.find((d) => d.deviceId === 'default') || audioInputs[0];
+    if (defaultMic && defaultMic.label) {
+      micNameEl.textContent = defaultMic.label;
+      micNameEl.title = defaultMic.label;
+    } else if (audioInputs.length > 0) {
+      micNameEl.textContent = 'Default Microphone';
+      micNameEl.title = 'Default audio input device (start recording to query detailed name)';
+    } else {
+      micNameEl.textContent = 'No microphone found';
+      micNameEl.title = 'No audio input devices detected';
+    }
+  } catch (err) {
+    console.warn('[recorder] Error detecting microphone:', err);
+    micNameEl.textContent = 'Default Microphone';
+  }
+}
+
 export function initSampleRecorder() {
   const recordBtn = document.getElementById('record-btn');
   const stopBtn = document.getElementById('stop-record-btn');
@@ -20,6 +60,10 @@ export function initSampleRecorder() {
   const statusEl = document.getElementById('recording-status');
 
   if (!recordBtn || !stopBtn) return;
+
+  // Initialize microphone device name readout and listen for device changes
+  updateMicInfo();
+  navigator.mediaDevices?.addEventListener?.('devicechange', () => updateMicInfo());
 
   function setStatus(text, isError = false) {
     if (statusEl) {
@@ -33,6 +77,12 @@ export function initSampleRecorder() {
       setStatus('Requesting microphone access...');
       recordStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioChunks = [];
+
+      // Update microphone label from the active audio track
+      const audioTrack = recordStream.getAudioTracks()[0];
+      if (audioTrack) {
+        updateMicInfo(audioTrack);
+      }
 
       const options = {};
       if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {

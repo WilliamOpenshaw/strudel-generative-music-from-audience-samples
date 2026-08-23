@@ -69,38 +69,42 @@ function formatDrumFallback() {
   ].join(', ');
 }
 
-export const defaultDrumPatterns = [
-  'bd [~ sd]*2 hh*2',
-  'bd [~ sd] [bd bd] sd',
-  '[bd ~] [sd ~] [bd bd] [sd ~]',
-  'bd ~ [sd bd] ~',
-  'bd*2 [~ sd] [~ bd] [sd*2 ~]',
-  '[bd ~ bd ~] [~ sd ~ sd] [hh*4]',
-  'bd [sd ~] bd [~ sd*2]',
-  'bd [~ sd] [~ bd] [sd ~]',
-  '[bd bd] sd bd [sd sd]',
-  'bd [~ sd] bd*2 [~ sd]',
-];
+/**
+ * Generate a procedural drum pattern based on density and time signature beats.
+ * Density (1-64) determines the probability of hits and subdivisions.
+ */
+export function generateProceduralDrumPattern(density, beats, isAudience) {
+  const elements = [];
+  const normalizedDensity = Math.max(1, Math.min(64, density)) / 64; // 0.0 to 1.0
 
-export const defaultAudienceDrumPatterns = [
-  '0 [~ 0] 0 [~ 0]',
-  '0 [~ 0]*2 0*2',
-  '[0 ~] [0 0] [~ 0] 0',
-  '0 ~ [0 0] ~',
-  '0*2 [~ 0] [~ 0] 0',
-  '[0 ~ 0 ~] [~ 0 ~ 0] [0*2]',
-  '0 [0 ~] 0 [~ 0*2]',
-  '[0 0] 0 [0 0] 0',
-  '0 [~ 0] [0 0] [~ 0]',
-  '0 ~ 0*2 [~ 0]',
-];
-
-export function randomDrumPattern() {
-  return defaultDrumPatterns[Math.floor(Math.random() * defaultDrumPatterns.length)];
-}
-
-export function randomAudienceDrumPattern() {
-  return defaultAudienceDrumPatterns[Math.floor(Math.random() * defaultAudienceDrumPatterns.length)];
+  const insts = isAudience ? ['0'] : ['bd', 'sd', 'hh'];
+  
+  for (let b = 0; b < beats; b++) {
+    // Determine complexity of this beat
+    const rand = Math.random();
+    
+    if (rand > normalizedDensity + 0.3) {
+      // Rest
+      elements.push('~');
+    } else if (rand < normalizedDensity * 0.4) {
+      // Subdivision (2, 3, or 4 hits)
+      const subCount = Math.random() > 0.8 ? 4 : (Math.random() > 0.5 ? 3 : 2);
+      const subElements = [];
+      for (let i = 0; i < subCount; i++) {
+        if (Math.random() > 0.8) {
+          subElements.push('~');
+        } else {
+          subElements.push(insts[Math.floor(Math.random() * insts.length)]);
+        }
+      }
+      elements.push(`[${subElements.join(' ')}]`);
+    } else {
+      // Single hit
+      elements.push(insts[Math.floor(Math.random() * insts.length)]);
+    }
+  }
+  
+  return elements.join(' ');
 }
 
 /** Create a new random arrangement and update dashboard readouts on state. */
@@ -111,8 +115,8 @@ export function createArrangement(state, { regenChords = true, regenMelody = tru
   const arr = state._arrangement;
 
   // Density = how many note/silence elements to generate
-  const melodyCount = Math.max(1, Math.min(64, state.melodyDensity ?? 16));
-  const bassCount   = Math.max(1, Math.min(64, state.bassDensity   ?? 16));
+  const melodyCount = Math.max(1, Math.min(64, state.melodyDensity ?? 8));
+  const bassCount = Math.max(1, Math.min(64, state.bassDensity ?? 8));
 
   if (regenChords) {
     arr.chordArray = randomChords(defaultChordPool, 4, 0);
@@ -129,8 +133,10 @@ export function createArrangement(state, { regenChords = true, regenMelody = tru
     arr.bassArray = randomMelody([-7, -6, -5, -4, -3, -2, -1, 0, 1, 2], bassCount, 0.25);
   }
   if (regenDrums || !arr.drumPattern) {
-    arr.drumPattern = randomDrumPattern();
-    arr.audienceDrumPattern = randomAudienceDrumPattern();
+    const tsNum = state.timeSigNum || 4;
+    const drumDensity = Math.max(1, Math.min(64, state.drumsDensity ?? 8));
+    arr.drumPattern = generateProceduralDrumPattern(drumDensity, tsNum, false);
+    arr.audienceDrumPattern = generateProceduralDrumPattern(drumDensity, tsNum, true);
   }
 
   return arr;
@@ -162,10 +168,9 @@ export function buildStrudelCode(state) {
   // makes each chord last 1 full measure → 4 chords = 4 measures total.
   const chordSlow = cyclesPerMeasure;       // 4 in 4/4 — matches original slow(16)/4 chords
 
-  // Drums: density adjusts the drum loop speed.
-  // Default density 16 = 1 measure per loop. Higher = faster loop.
+  // Drums: density is handled by the procedural generator, so we just span it over 1 measure.
   const drumDensity = Math.max(1, Math.min(64, state.drumsDensity ?? 16));
-  const drumSlow = cyclesPerMeasure * (16 / drumDensity);
+  const drumSlow = cyclesPerMeasure;
 
   // ─── Per-track transpose ───
   const globalT = state.transpose || 0;
@@ -174,7 +179,7 @@ export function buildStrudelCode(state) {
   const bassT = globalT + (state.bassTranspose || 0) + ((state.bassOctave || 0) * 12);
   const leadT = globalT + (state.melodyTranspose ?? state.leadTranspose ?? 0) + (((state.melodyOctave ?? state.leadOctave) || 0) * 12);
 
-  const masterGain = state.gain.toFixed(2);
+  const masterGain = state.gain !== undefined ? Number(state.gain) : 1.0;
   const parts = [];
 
   // ─── Debug logging ───
@@ -193,22 +198,23 @@ export function buildStrudelCode(state) {
       drumSound.startsWith('audience_') ||
       allAudienceSamples.some((s) => s.soundKey === drumSound);
 
+    const dGain = (Number(state.drumsGain ?? 0.5) * masterGain).toFixed(2);
     if (drumSound === 'synth' || drumSound === 'default') {
       parts.push(
-        `n(seq(${formatDrumFallback()})).s("triangle")${drumTransStr}.release(0.05).gain(${state.drumsGain}).slow(${drumSlow})`,
+        `n(seq(${formatDrumFallback()})).s("triangle")${drumTransStr}.gain(${dGain}).release(0.05).slow(${drumSlow})`,
       );
     } else if (isAudienceSample) {
       // For user-recorded audience drum samples
       const pattern = arr.audienceDrumPattern || '0 [~ 0] 0 [~ 0]';
       parts.push(
-        `s("${pattern}").s("${drumSound}")${drumTransStr}.gain(${state.drumsGain}).slow(${drumSlow})`,
+        `s("${pattern}").s("${drumSound}")${drumTransStr}.gain(${dGain}).slow(${drumSlow})`,
       );
     } else {
       // For all built-in drum kits (RolandTR909, RolandTR808, rolandtr909, linn, akaimpc60, rolandr8, etc.)
       // Use standard drum notation without commas
       const pattern = arr.drumPattern || 'bd [~ sd]*2 hh*2';
       parts.push(
-        `s("${pattern}").bank("${drumSound}")${drumTransStr}.gain(${state.drumsGain}).slow(${drumSlow})`,
+        `s("${pattern}").bank("${drumSound}")${drumTransStr}.gain(${dGain}).slow(${drumSlow})`,
       );
     }
   }
@@ -218,8 +224,9 @@ export function buildStrudelCode(state) {
   // fill one full measure.  4 chords × 1 measure each = 4-measure cycle.
   if (state.chordsOn) {
     const chordSound = state.sampleBanks?.chord || state.instruments?.chord || 'sawtooth';
+    const cGain = (Number(state.chordsGain ?? 0.9) * masterGain).toFixed(2);
     parts.push(
-      `slowcat(${formatChordPattern(chordArray)}).voicing().s("${chordSound}").transpose(${chordT}).lpf(${state.chordsLpf}).room(${state.chordsRoom}).gain(${state.chordsGain}).slow(${chordSlow})`,
+      `slowcat(${formatChordPattern(chordArray)}).voicing().s("${chordSound}").transpose(${chordT}).lpf(${state.chordsLpf}).room(${state.chordsRoom}).gain(${cGain}).slow(${chordSlow})`,
     );
   }
 
@@ -229,8 +236,9 @@ export function buildStrudelCode(state) {
   //  8 notes in slow(8) = 1 note/cycle  = 4 notes/measure (quarter-note bass)
   if (state.bassOn) {
     const bassSound = state.sampleBanks?.bass || state.instruments?.bass || 'sawtooth';
+    const bGain = (Number(state.bassGain ?? 0.15) * masterGain).toFixed(2);
     parts.push(
-      `n(seq(${formatMelodySeq(bassArray)})).scale("C:minor").s("${bassSound}").transpose(${bassT}).lpf(${state.bassLpf}).gain(${state.bassGain}).slow(${noteSpan})`,
+      `n(seq(${formatMelodySeq(bassArray)})).scale("C:minor").s("${bassSound}").transpose(${bassT}).lpf(${state.bassLpf}).gain(${bGain}).slow(${noteSpan})`,
     );
   }
 
@@ -241,8 +249,9 @@ export function buildStrudelCode(state) {
   //  8 notes in slow(8) = 1 note/cycle  = 4 notes/measure (quarter-note melody)
   if (state.melodyOn) {
     const leadSound = state.sampleBanks?.lead || state.instruments?.lead || 'triangle';
+    const mGain = (Number(state.melodyGain ?? 0.5) * masterGain).toFixed(2);
     parts.push(
-      `n(seq(${formatMelodySeq(melodyArray)})).scale("C:minor").s("${leadSound}").slow(${noteSpan}).transpose(${leadT}).gain(${state.melodyGain}).delay(${state.melodyDelay})`,
+      `n(seq(${formatMelodySeq(melodyArray)})).scale("C:minor").s("${leadSound}").transpose(${leadT}).gain(${mGain}).delay(${state.melodyDelay}).slow(${noteSpan})`,
     );
   }
 
@@ -254,7 +263,7 @@ export function buildStrudelCode(state) {
 setcpm(${state.cpm});
 stack(
   ${parts.join(',\n  ')}
-).gain(${masterGain}).speed(${state.speed.toFixed(2)}).play()
+).speed(${state.speed.toFixed(2)}).play()
 `.trim();
 }
 

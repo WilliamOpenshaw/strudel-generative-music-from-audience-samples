@@ -162,6 +162,7 @@ export function registerSoundfonts() {
         ]);
 
         const { duration } = value;
+        const holdEnd = time + (duration || 0.1);
         const n = getSoundIndex(value.n, fonts.length);
         const font = fonts[n];
         const ctx = getAudioContext();
@@ -169,8 +170,8 @@ export function registerSoundfonts() {
         bufferSource.start(time);
         const envGain = ctx.createGain();
         const node = bufferSource.connect(envGain);
-        const holdEnd = time + duration;
-        getParamADSR(node.gain, attack, decay, sustain, release, 0, 0.3, time, holdEnd, 'linear');
+        const peakGain = 0.3 * (typeof value.gain === 'number' ? value.gain : 1);
+        getParamADSR(node.gain, attack, decay, sustain, release, 0, peakGain, time, holdEnd, 'linear');
         const envEnd = holdEnd + release + 0.01;
 
         // vibrato

@@ -1010,17 +1010,17 @@ document.addEventListener('DOMContentLoaded', () => {
   bindDensityControls({
     track: 'melody', stateKey: 'melodyDensity', displayId: 'melody-density-display',
     minVal: 1, maxVal: 64,
-    regenOpts: { regenChords: false, regenMelody: true, regenBass: false },
+    regenOpts: { regenChords: false, regenMelody: true, regenBass: false, regenDrums: false },
   });
   bindDensityControls({
     track: 'bass', stateKey: 'bassDensity', displayId: 'bass-density-display',
     minVal: 1, maxVal: 32,
-    regenOpts: { regenChords: false, regenMelody: false, regenBass: true },
+    regenOpts: { regenChords: false, regenMelody: false, regenBass: true, regenDrums: false },
   });
   bindDensityControls({
     track: 'drums', stateKey: 'drumsDensity', displayId: 'drums-density-display',
     minVal: 1, maxVal: 64,
-    regenOpts: null, // drums use slow() factor only — no note-array regen needed
+    regenOpts: { regenChords: false, regenMelody: false, regenBass: false, regenDrums: true },
   });
 
   const startBtn = document.getElementById('start-btn');
