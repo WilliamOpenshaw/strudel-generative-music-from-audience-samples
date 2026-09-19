@@ -39,10 +39,23 @@ export const state = {
   bassOctave: 0,
   drumsOctave: 0,
 
+  // Active Pad Bank (1 or 2)
+  activePadBank: 1,
+
+  // Pad Bank assignments (Pads 1-15 -> sample key) for two banks
+  padBanks: {
+    1: {},
+    2: {}
+  },
+
   // Note density — target number of note/silence elements per generation
   melodyDensity: 8,
   bassDensity: 8,
   drumsDensity: 8,
+
+  // Octave range for random note generation (1, 3, or 5 octaves)
+  melodyOctaveRange: 1,
+  bassOctaveRange: 1,
 
   // Time signature
   timeSigNum: 4,

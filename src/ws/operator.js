@@ -67,5 +67,10 @@ export function initOperatorWS({ onAction, onStatus, onLockUpdate }) {
         ws.send(JSON.stringify({ type: MSG.TOGGLE_LOCK, action }));
       }
     },
+    syncPads: (padLabels) => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: MSG.SYNC_PADS, padLabels }));
+      }
+    }
   };
 }

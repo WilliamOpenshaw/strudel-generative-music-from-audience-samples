@@ -1,6 +1,7 @@
 import { initStrudel, evaluate, hush, samples, noteToMidi } from '@strudel/web';
 import { Drawer } from '@strudel/draw';
 import '@strudel/repl'; // registers <strudel-editor> custom element (code display only)
+import QRCode from 'qrcode';
 import { state, setStatus } from './src/state.js';
 import { createArrangement, buildStrudelCode } from './src/patterns/generative.js';
 import { loadCatalog, applyCatalogToState, getAllSamples } from './src/samples/catalog.js';
@@ -17,6 +18,7 @@ let strudelReady = false;
 // globalRepl is the object returned by initStrudel — it carries the single
 // authoritative scheduler whose .now() we use to drive the piano roll canvas.
 let globalRepl = null;
+let operatorWsClient = null;
 
 /* ─── Piano roll canvas renderer ──────────────────── */
 // We use @strudel/draw's Drawer class which manages the rAF loop, hap query
@@ -317,10 +319,10 @@ function handleAction(type, key) {
     if (uiUpdaters[key]) uiUpdaters[key](state[key]);
     debouncedRestart();
   } else if (type === 'regen') {
-    if (key === 'all') regenerate({ regenChords: true, regenMelody: true, regenBass: true, regenDrums: true });
+    if (key === 'all') regenerate({ regenChords: true, regenMelody: true, regenBass: true, regenDrums: true, randomizeSettings: true });
     if (key === 'chords') regenerate({ regenChords: true, regenMelody: false, regenBass: false, regenDrums: false });
-    if (key === 'bass') regenerate({ regenChords: false, regenMelody: false, regenBass: true, regenDrums: false });
-    if (key === 'melody') regenerate({ regenChords: false, regenMelody: true, regenBass: false, regenDrums: false });
+    if (key === 'bass') regenerate({ regenChords: false, regenMelody: false, regenBass: true, regenDrums: false, randomizeBassSettings: true });
+    if (key === 'melody') regenerate({ regenChords: false, regenMelody: true, regenBass: false, regenDrums: false, randomizeMelodySettings: true });
     if (key === 'drums') regenerate({ regenChords: false, regenMelody: false, regenBass: false, regenDrums: true });
   } else if (type === 'transport') {
     if (key === 'start') document.getElementById('start-btn')?.click();
@@ -338,14 +340,6 @@ function handleAction(type, key) {
         document.getElementById('stop-record-btn')?.click();
       }
     }
-  } else if (type === 'pitch') {
-    if (key === 'reset') {
-      state.transpose = 0;
-    } else {
-      state.transpose += (key === 'up' ? 1 : -1);
-    }
-    updateReadouts();
-    if (started) restartPattern();
   } else if (type === 'effectReset') {
     if (key === 'all') {
       ['drums', 'chords', 'bass', 'melody'].forEach(track => document.getElementById(`reset-${track}-effects`)?.click());
@@ -360,6 +354,16 @@ function handleAction(type, key) {
       state[stateKey] = isHalf ? Math.ceil(state[stateKey] / 2) : state[stateKey] * 2;
       document.getElementById(`${track}-density-display`).innerText = state[stateKey];
       debouncedRestart();
+    }
+  } else if (type === 'padBank' && key === 'toggle') {
+    state.activePadBank = state.activePadBank === 1 ? 2 : 1;
+    setupPadBank2Selects();
+    updatePerformerTab();
+  } else if (type === 'padSample') {
+    const padNum = parseInt(key, 10);
+    const sampleKey = state.padBanks[state.activePadBank][padNum];
+    if (sampleKey) {
+      playOneShot(sampleKey);
     }
   }
 }
@@ -409,6 +413,7 @@ function updateReadouts() {
       `Layers — drums:${state.drumsOn ? 'on' : 'off'} chords:${state.chordsOn ? 'on' : 'off'} bass:${state.bassOn ? 'on' : 'off'} melody:${state.melodyOn ? 'on' : 'off'}`,
     'note-display': () => `Last note: ${state.currentNote}`,
     'chord-display': () => `Current chord: ${state.currentChord}`,
+    'scale-display': () => `Key/Scale: C ${state.scaleMode || 'minor'}`,
     
     // Sample bank status
     'bank-lead-display': () => state.sampleBanks?.lead
@@ -485,39 +490,69 @@ async function restartPattern() {
 }
 
 async function regenerate(options) {
+  if (options && options.randomizeSettings) {
+    // Randomize instruments
+    ['lead', 'chord', 'bass', 'drum'].forEach((role) => {
+      document.getElementById(`rand-${role}`)?.click();
+    });
+    
+    // Randomize generative settings
+    ['chord-style-select', 'chord-prog-length-select', 'scale-mode-select'].forEach((id) => {
+      const select = document.getElementById(id);
+      if (select && select.options.length > 0) {
+        const opts = Array.from(select.options).map(o => o.value).filter(v => v !== '');
+        if (opts.length > 0) {
+          select.value = opts[Math.floor(Math.random() * opts.length)];
+          select.dispatchEvent(new Event('change'));
+        }
+      }
+    });
+
+    // Randomize octave ranges for melody and bass
+    ['melody', 'bass'].forEach((track) => {
+      const ranges = [1, 3, 5];
+      const picked = ranges[Math.floor(Math.random() * ranges.length)];
+      document.getElementById(`${track}-oct-range-${picked}`)?.click();
+    });
+
+    // Randomize density for melody, bass, and drums (between 8 and 32)
+    ['melody', 'bass', 'drums'].forEach((track) => {
+      const stateKeys = { melody: 'melodyDensity', bass: 'bassDensity', drums: 'drumsDensity' };
+      const key = stateKeys[track];
+      const randomDensity = Math.floor(Math.random() * (32 - 8 + 1)) + 8;
+      state[key] = randomDensity;
+      const display = document.getElementById(`${track}-density-display`);
+      if (display) display.innerText = randomDensity;
+    });
+  }
+
+  if (options && options.randomizeMelodySettings) {
+    const ranges = [1, 3, 5];
+    const picked = ranges[Math.floor(Math.random() * ranges.length)];
+    document.getElementById(`melody-oct-range-${picked}`)?.click();
+    
+    const randomDensity = Math.floor(Math.random() * (32 - 8 + 1)) + 8;
+    state.melodyDensity = randomDensity;
+    const display = document.getElementById(`melody-density-display`);
+    if (display) display.innerText = randomDensity;
+  }
+
+  if (options && options.randomizeBassSettings) {
+    const ranges = [1, 3, 5];
+    const picked = ranges[Math.floor(Math.random() * ranges.length)];
+    document.getElementById(`bass-oct-range-${picked}`)?.click();
+    
+    const randomDensity = Math.floor(Math.random() * (32 - 8 + 1)) + 8;
+    state.bassDensity = randomDensity;
+    const display = document.getElementById(`bass-density-display`);
+    if (display) display.innerText = randomDensity;
+  }
+
   createArrangement(state, options);
   updateReadouts();
   // Use playPattern() directly so the new arrangement lands at the next
   // cycle boundary without stopping the clock.
   if (started) await playPattern();
-}
-
-/* ─── Transpose (buttons + keyboard shortcut) ──────── */
-function bindTransposeControls() {
-  const down = document.getElementById('transpose-down');
-  const up = document.getElementById('transpose-up');
-  const apply = async (delta) => {
-    state.transpose += delta;
-    updateReadouts();
-    if (started) await restartPattern();
-  };
-  if (down) down.addEventListener('click', () => apply(-1));
-  if (up) up.addEventListener('click', () => apply(1));
-
-  if (window._strudelKeyHandler) {
-    document.removeEventListener('keydown', window._strudelKeyHandler);
-  }
-  window._strudelKeyHandler = (e) => {
-    if (!e.ctrlKey) return;
-    if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      apply(1);
-    } else if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      apply(-1);
-    }
-  };
-  document.addEventListener('keydown', window._strudelKeyHandler);
 }
 
 /* ─── Track Pitch Controls (Independent Steps & Octaves) ── */
@@ -606,9 +641,8 @@ function bindTrackPitchControls() {
       updateDisplay();
       debouncedRestart();
     };
-
-    downStep?.addEventListener('click', () => applyStep(-1));
-    upStep?.addEventListener('click', () => applyStep(1));
+    downStep?.addEventListener('click', () => applyStep(-2));
+    upStep?.addEventListener('click', () => applyStep(2));
 
     downOct?.addEventListener('click', () => applyOct(-1));
     upOct?.addEventListener('click', () => applyOct(1));
@@ -855,6 +889,26 @@ function setupInstrumentSelects() {
         }
       });
     }
+
+    // Randomize recorded sample button
+    const randSampleBtnId = `rand-sample-${config.role}`;
+    const randSampleBtn = document.getElementById(randSampleBtnId);
+    if (randSampleBtn) {
+      const newRandSampleBtn = randSampleBtn.cloneNode(true);
+      randSampleBtn.parentNode.replaceChild(newRandSampleBtn, randSampleBtn);
+      newRandSampleBtn.addEventListener('click', () => {
+        if (allSamples.length > 0) {
+          const picked = allSamples[Math.floor(Math.random() * allSamples.length)].soundKey;
+          newEl.value = picked;
+          if (!state.sampleBanks) state.sampleBanks = {};
+          if (!state.instruments) state.instruments = {};
+          state.sampleBanks[config.role] = picked;
+          state.instruments[config.role] = picked;
+          updateReadouts();
+          debouncedRestart();
+        }
+      });
+    }
   }
 }
 
@@ -871,10 +925,14 @@ function setupAudienceBridge() {
     setTimeout(() => toast.classList.remove('flash'), 1500);
   }
 
-  const wsClient = initOperatorWS({
+  operatorWsClient = initOperatorWS({
     onStatus: ({ connected, audienceCount }) => {
       if (countBadge) countBadge.textContent = audienceCount;
       if (statusPill) statusPill.textContent = connected ? `👥 ${audienceCount} connected` : '⚠️ Disconnected';
+      const portalCount = document.getElementById('portal-audience-count');
+      if (portalCount) {
+        portalCount.textContent = connected ? `${audienceCount} Audience Connected` : 'Offline';
+      }
     },
     onLockUpdate: (lockedSet) => {
       ['more_energy', 'calmer', 'new_chords', 'weird'].forEach((act) => {
@@ -889,33 +947,97 @@ function setupAudienceBridge() {
     },
     onAction: async (action) => {
       console.info('[dashboard] Audience action received:', action);
+      
+      const updateSlider = (id, val) => {
+        const slider = document.getElementById(id);
+        if (slider) slider.value = val;
+      };
+
       if (action === 'more_energy') {
-        state.cpm = Math.min(180, state.cpm + 5);
-        const cpmSlider = document.getElementById('cpm-slider');
-        if (cpmSlider) cpmSlider.value = state.cpm;
+        state.cpm = Math.min(240, state.cpm + 5);
+        updateSlider('cpm-slider', state.cpm);
         showToast(`🔥 Audience: More Energy! (CPM: ${state.cpm})`);
         updateReadouts();
         debouncedRestart();
       } else if (action === 'calmer') {
         state.cpm = Math.max(60, state.cpm - 5);
-        const cpmSlider = document.getElementById('cpm-slider');
-        if (cpmSlider) cpmSlider.value = state.cpm;
+        updateSlider('cpm-slider', state.cpm);
         showToast(`🌊 Audience: Calmer... (CPM: ${state.cpm})`);
         updateReadouts();
         debouncedRestart();
       } else if (action === 'new_chords') {
         showToast(`🎵 Audience: New Chords!`);
-        regenerate({ regenChords: true, regenMelody: false, regenBass: false });
+        regenerate({ regenChords: true, regenMelody: false, regenBass: false, regenDrums: false });
       } else if (action === 'weird') {
-        const delaySlider = document.getElementById('melody-delay-slider');
-        const roomSlider = document.getElementById('chords-room-slider');
         state.melodyDelay = +(Math.random() * 0.6 + 0.2).toFixed(2);
         state.chordsRoom = +(Math.random() * 0.7 + 0.3).toFixed(2);
-        if (delaySlider) delaySlider.value = state.melodyDelay;
-        if (roomSlider) roomSlider.value = state.chordsRoom;
+        updateSlider('melody-delay-slider', state.melodyDelay);
+        updateSlider('chords-room-slider', state.chordsRoom);
         showToast(`✨ Audience: Got Weird! (Delay: ${state.melodyDelay}, Room: ${state.chordsRoom})`);
         updateReadouts();
         debouncedRestart();
+      } else if (action === 'faster') {
+        state.speed = Math.max(0.1, Math.min(4.0, (state.speed || 1.0) + 0.1));
+        showToast(`⏩ Audience: Faster! (Speed: ${state.speed.toFixed(1)}x)`);
+        updateReadouts();
+        debouncedRestart();
+      } else if (action === 'slower') {
+        state.speed = Math.max(0.1, Math.min(4.0, (state.speed || 1.0) - 0.1));
+        showToast(`⏪ Audience: Slower! (Speed: ${state.speed.toFixed(1)}x)`);
+        updateReadouts();
+        debouncedRestart();
+      } else if (action === 'octave_up' || action === 'octave_down') {
+        const delta = action === 'octave_up' ? 1 : -1;
+        ['lead', 'chords', 'bass', 'drums'].forEach(track => {
+          const octKey = `${track}Octave`;
+          state[octKey] = (state[octKey] || 0) + delta;
+          if (track === 'lead') state.melodyOctave = state.leadOctave;
+          const displayEl = document.getElementById(`${track}-oct-display`);
+          if (displayEl) {
+             const val = state[octKey];
+             displayEl.innerText = val > 0 ? `+${val}` : `${val}`;
+          }
+        });
+        showToast(action === 'octave_up' ? `⬆️ Audience: Octave Up!` : `⬇️ Audience: Octave Down!`);
+        updateReadouts();
+        debouncedRestart();
+      } else if (action === 'new_melody') {
+        showToast(`🎹 Audience: New Melody!`);
+        regenerate({ regenChords: false, regenMelody: true, regenBass: false, regenDrums: false, randomizeMelodySettings: true });
+      } else if (action === 'new_bass') {
+        showToast(`🎸 Audience: New Bass!`);
+        regenerate({ regenChords: false, regenMelody: false, regenBass: true, regenDrums: false, randomizeBassSettings: true });
+      } else if (action === 'new_drums') {
+        showToast(`🥁 Audience: New Drums!`);
+        regenerate({ regenChords: false, regenMelody: false, regenBass: false, regenDrums: true });
+      } else if (action === 'regen_all') {
+        showToast(`🎲 Audience: Regenerate All!`);
+        regenerate({ regenChords: true, regenMelody: true, regenBass: true, regenDrums: true, randomizeSettings: true });
+      } else if (action === 'delay_up' || action === 'delay_down') {
+        const delta = action === 'delay_up' ? 0.1 : -0.1;
+        ['drums', 'chords', 'bass', 'melody'].forEach(track => {
+          const key = `${track}Delay`;
+          state[key] = Math.max(0, Math.min(1, (state[key] || 0) + delta));
+          updateSlider(`${track}-delay-slider`, state[key]);
+        });
+        showToast(action === 'delay_up' ? `↗️ Audience: Delay Up!` : `↙️ Audience: Delay Down!`);
+        debouncedRestart();
+      } else if (action === 'reverb_up' || action === 'reverb_down') {
+        const delta = action === 'reverb_up' ? 0.1 : -0.1;
+        ['drums', 'chords', 'bass', 'melody'].forEach(track => {
+          const key = `${track}Room`;
+          state[key] = Math.max(0, Math.min(1, (state[key] || 0) + delta));
+          updateSlider(`${track}-room-slider`, state[key]);
+        });
+        showToast(action === 'reverb_up' ? `🌫️ Audience: Reverb Up!` : `📦 Audience: Reverb Down!`);
+        debouncedRestart();
+      } else if (action.startsWith('pad_')) {
+        const padNum = parseInt(action.split('_')[1], 10);
+        const sampleKey = state.padBanks[state.activePadBank][padNum];
+        if (sampleKey) {
+          showToast(`🎛️ Audience: Played Pad ${padNum}!`);
+          playOneShot(sampleKey);
+        }
       }
     },
   });
@@ -924,15 +1046,565 @@ function setupAudienceBridge() {
   document.querySelectorAll('.lock-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       const action = btn.dataset.action;
-      if (action && wsClient) {
-        wsClient.toggleLock(action);
+      if (action && operatorWsClient) {
+        operatorWsClient.toggleLock(action);
       }
     });
   });
 }
 
+/* ─── Pad Bank 2 (One-Shots) ───────────────────────── */
+const oneShotBuffers = new Map();
+let padBankAudioCtx = null;
+let hasAssignedPadBankDefaults = false;
+
+async function playOneShot(sampleKey) {
+  if (!padBankAudioCtx) {
+    padBankAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (padBankAudioCtx.state === 'suspended') {
+    await padBankAudioCtx.resume();
+  }
+
+  // Find the exact filename (with extension) from catalog
+  const allSamples = getAllSamples();
+  const sampleData = allSamples.find(s => s.soundKey === sampleKey);
+  if (!sampleData) {
+    console.warn(`[PadBank2] Sample not found in catalog: ${sampleKey}`);
+    return;
+  }
+
+  const filename = sampleData.filename;
+
+  // Fetch and decode if not cached
+  if (!oneShotBuffers.has(sampleKey)) {
+    try {
+      const res = await fetch(`/samples/${filename}`);
+      if (!res.ok) throw new Error('Not found');
+      const arrayBuffer = await res.arrayBuffer();
+      const audioBuffer = await padBankAudioCtx.decodeAudioData(arrayBuffer);
+      oneShotBuffers.set(sampleKey, audioBuffer);
+    } catch (err) {
+      console.warn(`[PadBank2] Failed to load sample ${filename}:`, err);
+      return;
+    }
+  }
+
+  const buffer = oneShotBuffers.get(sampleKey);
+  if (!buffer) return;
+
+  const source = padBankAudioCtx.createBufferSource();
+  source.buffer = buffer;
+  source.connect(padBankAudioCtx.destination);
+  source.start();
+}
+
+function setupPadBank2Selects() {
+  const grid = document.getElementById('pad-bank-grid');
+  if (!grid) return;
+
+  const allSamples = getAllSamples();
+  
+  grid.innerHTML = '';
+  
+  // Render order to match physical controller (bottom left is Pad 1)
+  const displayOrder = [
+    12, 13, 14, 15, // Row 1 (Top): Pads 13-16
+    8,  9,  10, 11, // Row 2: Pads 9-12
+    4,  5,  6,  7,  // Row 3: Pads 5-8
+    0,  1,  2,  3   // Row 4 (Bottom): Pads 1-4
+  ];
+
+  // Auto-assign defaults sequentially only once for Bank 1
+  if (allSamples.length > 0 && !hasAssignedPadBankDefaults) {
+    hasAssignedPadBankDefaults = true;
+    for (let i = 0; i < 15; i++) {
+      state.padBanks[1][i + 1] = i < allSamples.length ? allSamples[i].soundKey : '';
+    }
+  }
+
+  const activeBankNum = state.activePadBank;
+  const currentBank = state.padBanks[activeBankNum];
+
+  for (const i of displayOrder) {
+    const padNum = i + 1; // 1 to 16
+
+    const item = document.createElement('div');
+    item.className = 'pad-bank-item';
+    
+    if (padNum === 16) {
+      item.classList.add('pad-bank-toggle');
+      item.innerHTML = `<label>Pad 16 (Toggle)</label><div class="toggle-indicator">Switch to Bank ${activeBankNum === 1 ? 2 : 1}</div>`;
+      item.addEventListener('click', () => {
+        state.activePadBank = activeBankNum === 1 ? 2 : 1;
+        setupPadBank2Selects();
+        updatePerformerTab();
+      });
+      grid.appendChild(item);
+      continue;
+    }
+
+    const label = document.createElement('label');
+    label.innerText = `Pad ${padNum}`;
+
+    const select = document.createElement('select');
+    select.dataset.pad = padNum;
+    
+    // Populate options
+    const emptyOpt = document.createElement('option');
+    emptyOpt.value = '';
+    emptyOpt.text = 'Empty';
+    select.appendChild(emptyOpt);
+
+    allSamples.forEach((sample) => {
+      const opt = document.createElement('option');
+      opt.value = sample.soundKey;
+      opt.text = sample.displayName;
+      select.appendChild(opt);
+    });
+
+    select.value = currentBank[padNum] || '';
+
+    select.addEventListener('change', (e) => {
+      currentBank[padNum] = e.target.value;
+      updatePadBank2SelectsUI();
+      updatePerformerTab();
+    });
+
+    item.appendChild(label);
+    item.appendChild(select);
+    grid.appendChild(item);
+  }
+  
+  // Highlight the active bank toggle button in UI if it exists
+  const bank1Btn = document.getElementById('bank-toggle-1');
+  const bank2Btn = document.getElementById('bank-toggle-2');
+  if (bank1Btn && bank2Btn) {
+    if (activeBankNum === 1) {
+      bank1Btn.classList.add('active');
+      bank2Btn.classList.remove('active');
+    } else {
+      bank2Btn.classList.add('active');
+      bank1Btn.classList.remove('active');
+    }
+  }
+
+  updatePadBank2SelectsUI();
+}
+
+function updatePadBank2SelectsUI() {
+  const selects = document.querySelectorAll('#pad-bank-grid select');
+  const currentBank = state.padBanks[state.activePadBank];
+  
+  const assigned = new Set();
+  for (const pad in currentBank) {
+    if (currentBank[pad]) {
+      assigned.add(currentBank[pad]);
+    }
+  }
+
+  selects.forEach((select) => {
+    const myPad = parseInt(select.dataset.pad, 10);
+    const myValue = currentBank[myPad] || '';
+
+    Array.from(select.options).forEach((opt) => {
+      if (opt.value === '') return;
+      if (opt.value !== myValue && assigned.has(opt.value)) {
+        opt.disabled = true;
+      } else {
+        opt.disabled = false;
+      }
+    });
+  });
+}
+
+export function broadcastPadSync() {
+  if (!operatorWsClient) return;
+  const currentBank = state.padBanks[state.activePadBank];
+  const allSamples = getAllSamples();
+  const padLabels = {};
+  for (let i = 1; i <= 15; i++) {
+    const sampleKey = currentBank[i];
+    if (sampleKey) {
+      const sample = allSamples.find(s => s.soundKey === sampleKey);
+      padLabels[`pad_${i}`] = sample ? sample.displayName : 'Empty';
+    } else {
+      padLabels[`pad_${i}`] = 'Empty';
+    }
+  }
+  padLabels[`pad_16`] = `Bank ${state.activePadBank === 1 ? 2 : 1} Toggle`;
+  operatorWsClient.syncPads(padLabels);
+}
+
+export function updatePerformerTab() {
+  broadcastPadSync(); // Tell audience clients about the new pad layout
+  const grid = document.getElementById('performer-pad-grid');
+  const bankTitle = document.getElementById('performer-bank-title');
+  if (!grid) return;
+  
+  const activeBankNum = state.activePadBank;
+  const currentBank = state.padBanks[activeBankNum];
+  const allSamples = getAllSamples();
+  
+  if (bankTitle) {
+    bankTitle.innerText = `Bank ${activeBankNum}`;
+  }
+
+  // Render order to match physical controller
+  const displayOrder = [
+    12, 13, 14, 15, // Row 1 (Top)
+    8,  9,  10, 11, // Row 2
+    4,  5,  6,  7,  // Row 3
+    0,  1,  2,  3   // Row 4 (Bottom)
+  ];
+
+  grid.innerHTML = '';
+  
+  for (const i of displayOrder) {
+    const padNum = i + 1;
+    const item = document.createElement('div');
+    
+    if (padNum === 16) {
+      item.className = 'performer-pad toggle-pad';
+      item.innerHTML = `<div class="pad-num">16</div><div class="pad-name">Switch to Bank ${activeBankNum === 1 ? 2 : 1}</div>`;
+      item.addEventListener('click', () => {
+        state.activePadBank = activeBankNum === 1 ? 2 : 1;
+        setupPadBank2Selects();
+        updatePerformerTab();
+      });
+    } else {
+      item.className = 'performer-pad';
+      const sampleKey = currentBank[padNum];
+      let displayName = 'Empty';
+      if (sampleKey) {
+        const sample = allSamples.find(s => s.soundKey === sampleKey);
+        if (sample) displayName = sample.displayName;
+        item.classList.add('assigned');
+      }
+      item.innerHTML = `<div class="pad-num">${padNum}</div><div class="pad-name">${displayName}</div>`;
+    }
+    grid.appendChild(item);
+  }
+}
+
+/* ─── Audience Portal & Wi-Fi Projection Tab ───────── */
+function setupAudiencePortalTab() {
+  const tabBtnDashboard = document.getElementById('tab-btn-dashboard');
+  const tabBtnPortal = document.getElementById('tab-btn-audience-portal');
+  const tabBtnPerformer = document.getElementById('tab-btn-performer');
+  const quickSwitchBtn = document.getElementById('quick-switch-audience-portal-btn');
+  const contentDashboard = document.getElementById('tab-content-dashboard');
+  const contentPortal = document.getElementById('tab-content-audience-portal');
+  const contentPerformer = document.getElementById('tab-content-performer');
+
+  let qrMode = 'audience-url'; // 'audience-url' | 'wifi'
+  let isPasswordHidden = false;
+  let currentSsid = '';
+  let currentIp = location.hostname || 'localhost';
+  let currentPort = location.port || 3000;
+
+  function switchTab(target) {
+    const tabs = [
+      { id: 'dashboard', btn: tabBtnDashboard, content: contentDashboard, display: 'flex' },
+      { id: 'audience-portal', btn: tabBtnPortal, content: contentPortal, display: 'block', onOpen: renderQrCode },
+      { id: 'performer', btn: tabBtnPerformer, content: contentPerformer, display: 'block', onOpen: updatePerformerTab }
+    ];
+
+    tabs.forEach(tab => {
+      const isActive = tab.id === target;
+      if (tab.btn) {
+        if (isActive) {
+          tab.btn.classList.add('active');
+          tab.btn.setAttribute('aria-selected', 'true');
+        } else {
+          tab.btn.classList.remove('active');
+          tab.btn.setAttribute('aria-selected', 'false');
+        }
+      }
+      
+      if (tab.content) {
+        tab.content.style.display = isActive ? tab.display : 'none';
+      }
+      
+      if (isActive && tab.onOpen) {
+        tab.onOpen();
+      }
+    });
+  }
+
+  tabBtnDashboard?.addEventListener('click', () => switchTab('dashboard'));
+  tabBtnPortal?.addEventListener('click', () => switchTab('audience-portal'));
+  tabBtnPerformer?.addEventListener('click', () => switchTab('performer'));
+  quickSwitchBtn?.addEventListener('click', () => switchTab('audience-portal'));
+
+  // Keyboard shortcut: Ctrl+1 (Dashboard) / Ctrl+2 (Performer) / Ctrl+3 (Audience Portal)
+  window.addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey) {
+      if (e.key === '1') {
+        e.preventDefault();
+        switchTab('dashboard');
+      } else if (e.key === '2') {
+        e.preventDefault();
+        switchTab('performer');
+      } else if (e.key === '3') {
+        e.preventDefault();
+        switchTab('audience-portal');
+      }
+    }
+  });
+
+  // ── Password Management ──
+  const pwInput = document.getElementById('wifi-password-input');
+  const pwDisplay = document.getElementById('wifi-password-display');
+  const pwClearBtn = document.getElementById('wifi-password-clear-btn');
+  const pwVisibilityBtn = document.getElementById('wifi-pw-visibility-btn');
+  const copyPwBtn = document.getElementById('copy-wifi-pw-btn');
+
+  function updatePasswordDisplay() {
+    const val = pwInput ? pwInput.value.trim() : '';
+    if (!pwDisplay) return;
+
+    if (!val) {
+      pwDisplay.textContent = 'No password required / None set';
+      pwDisplay.classList.add('empty');
+    } else {
+      pwDisplay.classList.remove('empty');
+      if (isPasswordHidden) {
+        pwDisplay.textContent = '•'.repeat(Math.min(val.length, 16));
+      } else {
+        pwDisplay.textContent = val;
+      }
+    }
+
+    if (qrMode === 'wifi') {
+      renderQrCode();
+    }
+  }
+
+  // Restore saved password from localStorage
+  const savedPw = localStorage.getItem('strudel_wifi_password') || '';
+  if (pwInput && savedPw) {
+    pwInput.value = savedPw;
+  }
+  updatePasswordDisplay();
+
+  pwInput?.addEventListener('input', () => {
+    localStorage.setItem('strudel_wifi_password', pwInput.value);
+    updatePasswordDisplay();
+  });
+
+  pwClearBtn?.addEventListener('click', () => {
+    if (pwInput) pwInput.value = '';
+    localStorage.removeItem('strudel_wifi_password');
+    updatePasswordDisplay();
+  });
+
+  pwVisibilityBtn?.addEventListener('click', () => {
+    isPasswordHidden = !isPasswordHidden;
+    if (pwVisibilityBtn) {
+      pwVisibilityBtn.textContent = isPasswordHidden ? '👁️ Show on Screen' : '👁️ Hide on Screen';
+    }
+    updatePasswordDisplay();
+  });
+
+  copyPwBtn?.addEventListener('click', async () => {
+    const val = pwInput ? pwInput.value : '';
+    if (val && navigator.clipboard) {
+      await navigator.clipboard.writeText(val);
+      const prev = copyPwBtn.textContent;
+      copyPwBtn.textContent = '✓ Copied!';
+      setTimeout(() => { copyPwBtn.textContent = prev; }, 1500);
+    }
+  });
+
+  // ── Wi-Fi SSID Management ──
+  const ssidDisplay = document.getElementById('wifi-ssid-display');
+  const ssidEditToggle = document.getElementById('wifi-ssid-edit-toggle');
+  const ssidEditBox = document.getElementById('wifi-ssid-edit-box');
+  const ssidInput = document.getElementById('wifi-ssid-input');
+  const ssidSaveBtn = document.getElementById('wifi-ssid-save-btn');
+  const ssidCancelBtn = document.getElementById('wifi-ssid-cancel-btn');
+
+  function updateSsidDisplay(ssid) {
+    currentSsid = ssid || '';
+    if (ssidDisplay) {
+      ssidDisplay.textContent = currentSsid || 'Not detected (Wired or Offline)';
+    }
+    if (qrMode === 'wifi') {
+      renderQrCode();
+    }
+  }
+
+  ssidEditToggle?.addEventListener('click', () => {
+    if (!ssidEditBox) return;
+    const isHidden = ssidEditBox.style.display === 'none';
+    ssidEditBox.style.display = isHidden ? 'flex' : 'none';
+    if (isHidden && ssidInput) {
+      ssidInput.value = currentSsid;
+      ssidInput.focus();
+    }
+  });
+
+  ssidSaveBtn?.addEventListener('click', () => {
+    if (ssidInput) {
+      const custom = ssidInput.value.trim();
+      localStorage.setItem('strudel_custom_ssid', custom);
+      updateSsidDisplay(custom);
+    }
+    if (ssidEditBox) ssidEditBox.style.display = 'none';
+  });
+
+  ssidCancelBtn?.addEventListener('click', () => {
+    if (ssidEditBox) ssidEditBox.style.display = 'none';
+  });
+
+  // ── URL & Network Interfaces ──
+  const urlLink = document.getElementById('audience-url-link');
+  const copyUrlBtn = document.getElementById('copy-url-btn');
+  const interfacesContainer = document.getElementById('network-interfaces-container');
+  const interfacesSelect = document.getElementById('network-interfaces-select');
+  const refreshBtn = document.getElementById('portal-refresh-btn');
+
+  function getAudienceUrl() {
+    const ip = currentIp || location.hostname || 'localhost';
+    const port = currentPort || location.port || 3000;
+    return `http://${ip}:${port}/audience.html`;
+  }
+
+  function updateUrlDisplay() {
+    const url = getAudienceUrl();
+    if (urlLink) {
+      urlLink.href = url;
+      urlLink.textContent = url;
+    }
+    renderQrCode();
+  }
+
+  copyUrlBtn?.addEventListener('click', async () => {
+    const url = getAudienceUrl();
+    if (url && navigator.clipboard) {
+      await navigator.clipboard.writeText(url);
+      const prev = copyUrlBtn.textContent;
+      copyUrlBtn.textContent = '✓ Copied!';
+      setTimeout(() => { copyUrlBtn.textContent = prev; }, 1500);
+    }
+  });
+
+  interfacesSelect?.addEventListener('change', () => {
+    currentIp = interfacesSelect.value;
+    updateUrlDisplay();
+  });
+
+  // ── QR Code Rendering ──
+  const qrCanvas = document.getElementById('audience-qr-canvas');
+  const qrLabelText = document.getElementById('qr-scan-label-text');
+  const toggleQrModeBtn = document.getElementById('toggle-qr-wifi-mode-btn');
+
+  function renderQrCode() {
+    if (!qrCanvas) return;
+
+    let payload = '';
+    if (qrMode === 'audience-url') {
+      payload = getAudienceUrl();
+      if (qrLabelText) qrLabelText.textContent = '📷 Point phone camera at QR code';
+      if (toggleQrModeBtn) toggleQrModeBtn.textContent = '📶 Switch to Wi-Fi Join QR';
+    } else {
+      // Standard Wi-Fi QR format: WIFI:S:<SSID>;T:<WPA|nopass>;P:<PASSWORD>;;
+      const pw = pwInput ? pwInput.value.trim() : '';
+      const authType = pw ? 'WPA' : 'nopass';
+      payload = `WIFI:S:${currentSsid};T:${authType};P:${pw};;`;
+      if (qrLabelText) qrLabelText.textContent = `📶 Scan to join "${currentSsid || 'Wi-Fi'}" directly`;
+      if (toggleQrModeBtn) toggleQrModeBtn.textContent = '🌐 Switch to Audience Site QR';
+    }
+
+    try {
+      QRCode.toCanvas(qrCanvas, payload, {
+        width: 280,
+        margin: 2,
+        color: {
+          dark: '#0f172a',
+          light: '#ffffff',
+        },
+        errorCorrectionLevel: 'M',
+      }, (err) => {
+        if (err) console.error('[QR] Error rendering QR code:', err);
+      });
+    } catch (err) {
+      console.error('[QR] Render exception:', err);
+    }
+  }
+
+  toggleQrModeBtn?.addEventListener('click', () => {
+    qrMode = qrMode === 'audience-url' ? 'wifi' : 'audience-url';
+    renderQrCode();
+  });
+
+  // ── Fetch Network Info from Server ──
+  async function fetchNetworkInfo() {
+    try {
+      if (ssidDisplay) ssidDisplay.textContent = 'Refreshing network info…';
+      const res = await fetch('/api/network-info');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+
+      // Check if user set a custom SSID override
+      const customSsid = localStorage.getItem('strudel_custom_ssid');
+      updateSsidDisplay(customSsid || data.ssid);
+
+      if (data.port) currentPort = data.port;
+      if (data.primaryIp) currentIp = data.primaryIp;
+
+      // Populate interface dropdown if available
+      if (data.interfaces && data.interfaces.length > 0) {
+        if (interfacesSelect) {
+          interfacesSelect.innerHTML = '';
+          data.interfaces.forEach((iface) => {
+            const opt = document.createElement('option');
+            opt.value = iface.address;
+            opt.textContent = `${iface.name} (${iface.address})`;
+            if (iface.address === currentIp) opt.selected = true;
+            interfacesSelect.appendChild(opt);
+          });
+          if (data.interfaces.length > 1 && interfacesContainer) {
+            interfacesContainer.style.display = 'flex';
+          }
+        }
+      }
+
+      updateUrlDisplay();
+    } catch (err) {
+      console.warn('[dashboard] Failed to fetch /api/network-info:', err);
+      if (ssidDisplay) ssidDisplay.textContent = 'Wi-Fi detection unavailable (offline)';
+      updateUrlDisplay();
+    }
+  }
+
+  refreshBtn?.addEventListener('click', () => fetchNetworkInfo());
+  fetchNetworkInfo();
+
+  // ── Fullscreen Projector Toggle ──
+  const fullscreenBtn = document.getElementById('portal-fullscreen-btn');
+  fullscreenBtn?.addEventListener('click', () => {
+    if (!document.fullscreenElement) {
+      contentPortal?.requestFullscreen?.().catch((err) => {
+        console.warn('[dashboard] Fullscreen error:', err);
+      });
+    } else {
+      document.exitFullscreen?.();
+    }
+  });
+
+  document.addEventListener('fullscreenchange', () => {
+    if (fullscreenBtn) {
+      fullscreenBtn.textContent = document.fullscreenElement ? '✕ Exit Fullscreen' : '⛶ Fullscreen Projector';
+    }
+  });
+}
+
 /* ─── Init ─────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => {
+  // Setup Audience Portal & Wi-Fi Tab
+  setupAudiencePortalTab();
   // ── Piano roll canvas resolution fix ────────────────
   // #test-canvas must have pixel-accurate .width/.height attributes so our
   // custom drawPianoRollFrame() renders at native resolution on retina screens.
@@ -954,11 +1626,60 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize Sample Editor, Recorder & Audience Bridge
   initSampleEditor();
   initSampleRecorder();
-  setupInstrumentSelects();
-  setupAudienceBridge();
-  setOnCatalogUpdated(() => {
+  
+  // Pre-load catalog so dropdowns aren't empty initially
+  loadCatalog(true).then(() => {
     setupInstrumentSelects();
+    setupPadBank2Selects();
+    updatePerformerTab();
     updateReadouts();
+  });
+
+  setupAudienceBridge();
+  setOnCatalogUpdated(async (oldName, newName) => {
+    await loadCatalog(true); // Force a refresh of the catalog
+
+    if (oldName && newName) {
+      // Update any instruments using the old name
+      if (state.sampleBanks) {
+        Object.keys(state.sampleBanks).forEach(k => {
+          if (state.sampleBanks[k] === oldName) state.sampleBanks[k] = newName;
+        });
+      }
+      if (state.instruments) {
+        Object.keys(state.instruments).forEach(k => {
+          if (state.instruments[k] === oldName) state.instruments[k] = newName;
+        });
+      }
+      // Update any pads using the old name
+      if (state.padBanks) {
+        [1, 2].forEach(bank => {
+          if (state.padBanks[bank]) {
+            Object.keys(state.padBanks[bank]).forEach(pad => {
+              if (state.padBanks[bank][pad] === oldName) state.padBanks[bank][pad] = newName;
+            });
+          }
+        });
+      }
+    }
+
+    setupInstrumentSelects();
+    setupPadBank2Selects();
+    updatePerformerTab();
+    updateReadouts();
+    debouncedRestart();
+  });
+
+  // Bind Pad Bank 2 toggles
+  document.getElementById('bank-toggle-1')?.addEventListener('click', () => {
+    state.activePadBank = 1;
+    setupPadBank2Selects();
+    updatePerformerTab();
+  });
+  document.getElementById('bank-toggle-2')?.addEventListener('click', () => {
+    state.activePadBank = 2;
+    setupPadBank2Selects();
+    updatePerformerTab();
   });
 
   // Initialize MIDI
@@ -1035,8 +1756,7 @@ document.addEventListener('DOMContentLoaded', () => {
   bindToggle('toggle-bass', 'bassOn');
   bindToggle('toggle-melody', 'melodyOn');
 
-  // Transpose (Global + Per-track independent)
-  bindTransposeControls();
+  // Track Pitch Controls (Independent Steps & Octaves)
   bindTrackPitchControls();
 
 
@@ -1120,16 +1840,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Regenerate buttons
   document.getElementById('regen-all')?.addEventListener('click', () =>
-    regenerate({ regenChords: true, regenMelody: true, regenBass: true, regenDrums: true }),
+    regenerate({ regenChords: true, regenMelody: true, regenBass: true, regenDrums: true, randomizeSettings: true }),
   );
   document.getElementById('regen-chords')?.addEventListener('click', () =>
     regenerate({ regenChords: true, regenMelody: false, regenBass: false, regenDrums: false }),
   );
   document.getElementById('regen-melody')?.addEventListener('click', () =>
-    regenerate({ regenChords: false, regenMelody: true, regenBass: false, regenDrums: false }),
+    regenerate({ regenChords: false, regenMelody: true, regenBass: false, regenDrums: false, randomizeMelodySettings: true }),
   );
   document.getElementById('regen-bass')?.addEventListener('click', () =>
-    regenerate({ regenChords: false, regenMelody: false, regenBass: true, regenDrums: false }),
+    regenerate({ regenChords: false, regenMelody: false, regenBass: true, regenDrums: false, randomizeBassSettings: true }),
   );
   document.getElementById('regen-drums')?.addEventListener('click', () =>
     regenerate({ regenChords: false, regenMelody: false, regenBass: false, regenDrums: true }),
@@ -1180,6 +1900,128 @@ document.addEventListener('DOMContentLoaded', () => {
     minVal: 1, maxVal: 64,
     regenOpts: { regenChords: false, regenMelody: false, regenBass: false, regenDrums: true },
   });
+
+  // ── Octave Range controls ──────────────────────────
+  // 1 = Current octave
+  // 3 = Current octave ± 1 octave
+  // 5 = Current octave ± 2 octaves
+  const OCTAVE_RANGES = [1, 3, 5];
+
+  function bindOctaveRangeControls({ track, stateKey, displayId, regenOpts }) {
+    const display = document.getElementById(displayId);
+    const btnDown = document.getElementById(`${track}-oct-range-down`);
+    const btnUp = document.getElementById(`${track}-oct-range-up`);
+    const pills = [1, 3, 5].map((r) => ({
+      range: r,
+      el: document.getElementById(`${track}-oct-range-${r}`),
+    }));
+
+    const getLabel = (val) => {
+      if (val === 5) return '5 Oct (±2 Oct)';
+      if (val === 3) return '3 Oct (±1 Oct)';
+      return '1 Oct (Current)';
+    };
+
+    const refresh = () => {
+      const current = state[stateKey] || 1;
+      if (display) {
+        display.innerText = getLabel(current);
+      }
+      pills.forEach(({ range, el }) => {
+        if (el) {
+          el.classList.toggle('active', range === current);
+        }
+      });
+    };
+
+    const apply = (newVal) => {
+      if (!OCTAVE_RANGES.includes(newVal)) return;
+      state[stateKey] = newVal;
+      refresh();
+      // Regenerate track arrangement with new octave range
+      if (regenOpts) {
+        createArrangement(state, regenOpts);
+        updateReadouts();
+      }
+      debouncedRestart();
+    };
+
+    const stepDown = () => {
+      const idx = OCTAVE_RANGES.indexOf(state[stateKey] || 1);
+      if (idx > 0) {
+        apply(OCTAVE_RANGES[idx - 1]);
+      }
+    };
+
+    const stepUp = () => {
+      const idx = OCTAVE_RANGES.indexOf(state[stateKey] || 1);
+      if (idx < OCTAVE_RANGES.length - 1) {
+        apply(OCTAVE_RANGES[idx + 1]);
+      }
+    };
+
+    const cycle = () => {
+      const idx = OCTAVE_RANGES.indexOf(state[stateKey] || 1);
+      const nextIdx = (idx + 1) % OCTAVE_RANGES.length;
+      apply(OCTAVE_RANGES[nextIdx]);
+    };
+
+    btnDown?.addEventListener('click', stepDown);
+    btnUp?.addEventListener('click', stepUp);
+    display?.addEventListener('click', cycle);
+
+    pills.forEach(({ range, el }) => {
+      el?.addEventListener('click', () => apply(range));
+    });
+
+    refresh();
+  }
+
+  bindOctaveRangeControls({
+    track: 'melody',
+    stateKey: 'melodyOctaveRange',
+    displayId: 'melody-oct-range-display',
+    regenOpts: { regenChords: false, regenMelody: true, regenBass: false, regenDrums: false },
+  });
+
+  bindOctaveRangeControls({
+    track: 'bass',
+    stateKey: 'bassOctaveRange',
+    displayId: 'bass-oct-range-display',
+    regenOpts: { regenChords: false, regenMelody: false, regenBass: true, regenDrums: false },
+  });
+
+  // ── Generative Settings controls ─────────────────────
+  const chordStyleSelect = document.getElementById('chord-style-select');
+  if (chordStyleSelect) {
+    chordStyleSelect.value = state.chordStyle || 'sustained';
+    chordStyleSelect.addEventListener('change', (e) => {
+      state.chordStyle = e.target.value;
+      debouncedRestart();
+    });
+  }
+
+  const chordProgLengthSelect = document.getElementById('chord-prog-length-select');
+  if (chordProgLengthSelect) {
+    chordProgLengthSelect.value = state.chordProgressionLength || '4';
+    chordProgLengthSelect.addEventListener('change', (e) => {
+      state.chordProgressionLength = e.target.value;
+      createArrangement(state, { regenChords: true, regenMelody: false, regenBass: false, regenDrums: false });
+      updateReadouts();
+      debouncedRestart();
+    });
+  }
+
+  const scaleModeSelect = document.getElementById('scale-mode-select');
+  if (scaleModeSelect) {
+    scaleModeSelect.value = state.scaleMode || 'minor';
+    scaleModeSelect.addEventListener('change', (e) => {
+      state.scaleMode = e.target.value;
+      createArrangement(state, { regenChords: true, regenMelody: true, regenBass: true, regenDrums: false });
+      updateReadouts();
+      debouncedRestart();
+    });
+  }
 
   const startBtn = document.getElementById('start-btn');
   if (startBtn) {

@@ -19,20 +19,7 @@
 - Pad 16 (Note 16): Pitch Transpose Up
 
 ## Pad Bank 2 (Notes 21-36)
-- Pad 1 (Note 21): Reset All Effects
-- Pad 2 (Note 22): Reset Drums Effects
-- Pad 3 (Note 23): Reset Chords Effects
-- Pad 4 (Note 24): Reset Bass Effects
-- Pad 5 (Note 25): Reset Melody Effects
-- Pad 6 (Note 26): Halve Melody Density
-- Pad 7 (Note 27): Double Melody Density
-- Pad 8 (Note 28): Halve Bass Density
-- Pad 9 (Note 29): Double Bass Density
-- Pad 10 (Note 30): Halve Drums Density
-- Pad 11 (Note 31): Double Drums Density
-- Pad 12 (Note 32): Start Sample Recording
-- Pad 13 (Note 33): Stop Sample Recording
-- Pad 14-16 (Notes 34-36): Unassigned
+- Pad 1-16 (Notes 21-36): Triggers assigned audience sample one-shots
 
 ## Encoders Bank 1 (CC 1-8)
 - Encoder 1 (CC 1): Master Gain
@@ -60,3 +47,21 @@
 - Play Button (CC 27): Start Transport (Play)
 - Pause Button (CC 28): Stop Transport (Pause)
 - Record Button (CC 29): Toggle Sample Record
+
+####################################################
+
+## PREVIOUS Pad Bank 2 settings (Notes 21-36)
+- Pad 1 (Note 21): Reset All Effects
+- Pad 2 (Note 22): Reset Drums Effects
+- Pad 3 (Note 23): Reset Chords Effects
+- Pad 4 (Note 24): Reset Bass Effects
+- Pad 5 (Note 25): Reset Melody Effects
+- Pad 6 (Note 26): Halve Melody Density
+- Pad 7 (Note 27): Double Melody Density
+- Pad 8 (Note 28): Halve Bass Density
+- Pad 9 (Note 29): Double Bass Density
+- Pad 10 (Note 30): Halve Drums Density
+- Pad 11 (Note 31): Double Drums Density
+- Pad 12 (Note 32): Start Sample Recording
+- Pad 13 (Note 33): Stop Sample Recording
+- Pad 14-16 (Notes 34-36): Unassigned

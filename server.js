@@ -13,10 +13,71 @@ import { createServer as createHttpServer } from 'http';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 import { writeFile, readFile, readdir } from 'fs/promises';
+import os from 'os';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import express from 'express';
 import { WebSocketServer } from 'ws';
 import { URL } from 'url';
 import { MSG, RATE_LIMIT_MS, ACTIONS } from './src/ws/protocol.js';
+
+const execAsync = promisify(exec);
+
+async function getWifiSSID() {
+  try {
+    if (process.platform === 'win32') {
+      const { stdout } = await execAsync('netsh wlan show interfaces');
+      const match = stdout.match(/^\s*SSID\s*:\s*(.+)$/m);
+      if (match && match[1].trim()) return match[1].trim();
+    } else if (process.platform === 'darwin') {
+      try {
+        const { stdout } = await execAsync('/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -I');
+        const match = stdout.match(/^\s*SSID:\s*(.+)$/m);
+        if (match && match[1].trim()) return match[1].trim();
+      } catch (e) {
+        const { stdout } = await execAsync('networksetup -getairportnetwork en0');
+        const match = stdout.match(/Current Wi-Fi Network:\s*(.+)/);
+        if (match && match[1].trim()) return match[1].trim();
+      }
+    } else if (process.platform === 'linux') {
+      try {
+        const { stdout } = await execAsync('iwgetid -r');
+        if (stdout.trim()) return stdout.trim();
+      } catch (e) {
+        const { stdout } = await execAsync("nmcli -t -f active,ssid dev wifi | grep '^yes'");
+        const parts = stdout.split(':');
+        if (parts[1] && parts[1].trim()) return parts[1].trim();
+      }
+    }
+  } catch (err) {
+    console.warn('[server] Failed to detect Wi-Fi SSID:', err.message);
+  }
+  return null;
+}
+
+function getLocalIpAddresses() {
+  const interfaces = os.networkInterfaces();
+  const addresses = [];
+  for (const [name, netList] of Object.entries(interfaces)) {
+    if (!netList) continue;
+    for (const net of netList) {
+      const isIPv4 = net.family === 'IPv4' || net.family === 4;
+      if (isIPv4 && !net.internal) {
+        addresses.push({
+          name,
+          address: net.address,
+          isWifi: /wi-?fi|wlan|wireless/i.test(name)
+        });
+      }
+    }
+  }
+  addresses.sort((a, b) => {
+    if (a.isWifi && !b.isWifi) return -1;
+    if (!a.isWifi && b.isWifi) return 1;
+    return 0;
+  });
+  return addresses;
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -209,6 +270,27 @@ app.post('/rename-sample', async (req, res) => {
   }
 });
 
+// ─── Network Info Endpoint ────────────────────────────
+app.get('/api/network-info', async (req, res) => {
+  try {
+    const ssid = await getWifiSSID();
+    const interfaces = getLocalIpAddresses();
+    const primaryIp = interfaces.length > 0 ? interfaces[0].address : 'localhost';
+    const port = PORT;
+    const audienceUrl = `http://${primaryIp}:${port}/audience.html`;
+
+    res.json({
+      ssid,
+      interfaces,
+      primaryIp,
+      port,
+      audienceUrl,
+    });
+  } catch (err) {
+    console.error('[server] Error retrieving network info:', err);
+    res.status(500).json({ error: 'Failed to retrieve network info' });
+  }
+});
 
 const server = createHttpServer(app);
 
@@ -309,6 +391,10 @@ wss.on('connection', (ws) => {
       sendLockState(); // broadcast new lock state to all audience clients
       // Also confirm to operators
       broadcast(operators, { type: MSG.LOCK_UPDATE, locked: [...lockedActions] });
+    }
+
+    if (role === 'operator' && msg.type === MSG.SYNC_PADS) {
+      broadcast(audiences, { type: MSG.SYNC_PADS, padLabels: msg.padLabels });
     }
   });
 

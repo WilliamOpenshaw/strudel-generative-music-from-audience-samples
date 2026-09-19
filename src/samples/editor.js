@@ -170,7 +170,9 @@ async function renameSample() {
       await selectFile(data.newFilename);
 
       if (onCatalogUpdatedCallback) {
-        onCatalogUpdatedCallback();
+        const oldName = currentSampleName.replace(/\.[^.]+$/, '');
+        const newSoundKey = data.newFilename.replace(/\.[^.]+$/, '');
+        onCatalogUpdatedCallback(oldName, newSoundKey);
       }
 
       setTimeout(() => {

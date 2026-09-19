@@ -4,9 +4,14 @@
 
 import { getAllSamples } from '../samples/catalog.js';
 
-export const defaultChordPool = [
-  'Cm7', 'Fm7', 'Gm7', 'Bb7', 'EbM7', 'AbM7',
-];
+export const SCALES = {
+  minor: { scaleStr: 'minor', chordPool: ['Cm7', 'Fm7', 'Gm7', 'Bb7', 'EbM7', 'AbM7'] },
+  major: { scaleStr: 'major', chordPool: ['CM7', 'Dm7', 'Em7', 'FM7', 'G7', 'Am7'] },
+  dorian: { scaleStr: 'dorian', chordPool: ['Cm7', 'Dm7', 'EbM7', 'F7', 'Gm7', 'Am7b5', 'BbM7'] },
+  mixolydian: { scaleStr: 'mixolydian', chordPool: ['C7', 'Dm7', 'Em7b5', 'FM7', 'Gm7', 'Am7', 'BbM7'] },
+};
+
+export const defaultChordPool = SCALES.minor.chordPool;
 
 export function randomChords(chordPool, length, silenceChance) {
   const a = [];
@@ -36,6 +41,43 @@ export function randomMelody(notes, length, silenceChance) {
     }
   }
   return a;
+}
+
+/**
+ * Generate the scale degree pool based on octave range (1, 3, or 5 octaves).
+ * Diatonic / heptatonic scale in Strudel has 7 degrees per octave.
+ * 1 octave = current octave.
+ * 3 octaves = current octave + 1 octave above + 1 octave below.
+ * 5 octaves = current octave + 2 octaves above + 2 octaves below.
+ */
+export function getScaleDegreePool(track, octaveRange = 1) {
+  const span = octaveRange === 5 ? 2 : (octaveRange === 3 ? 1 : 0);
+
+  if (track === 'bass') {
+    // Current octave for bass is [-7..0]
+    // 1 octave: -7 to 0
+    // 3 octaves: -14 to 7
+    // 5 octaves: -21 to 14
+    const min = -7 - span * 7;
+    const max = 0 + span * 7;
+    const pool = [];
+    for (let d = min; d <= max; d++) {
+      pool.push(d);
+    }
+    return pool;
+  } else {
+    // Current octave for melody is [0..7]
+    // 1 octave: 0 to 7
+    // 3 octaves: -7 to 14
+    // 5 octaves: -14 to 21
+    const min = 0 - span * 7;
+    const max = 7 + span * 7;
+    const pool = [];
+    for (let d = min; d <= max; d++) {
+      pool.push(d);
+    }
+    return pool;
+  }
 }
 
 function formatChordPattern(chordArray) {
@@ -119,18 +161,33 @@ export function createArrangement(state, { regenChords = true, regenMelody = tru
   const bassCount = Math.max(1, Math.min(64, state.bassDensity ?? 8));
 
   if (regenChords) {
-    arr.chordArray = randomChords(defaultChordPool, 4, 0);
+    const scaleMode = state.scaleMode || 'minor';
+    const chordPool = SCALES[scaleMode]?.chordPool || SCALES.minor.chordPool;
+    
+    let length = state.chordProgressionLength || 4;
+    if (length === 'random') {
+      length = Math.random() > 0.5 ? 4 : 6;
+    } else {
+      length = parseInt(length, 10);
+    }
+    
+    arr.chordArray = randomChords(chordPool, length, 0);
     state.currentChord =
       arr.chordArray
         .map(([, sym]) => sym)
         .filter((sym) => sym !== '~')
         .join(' / ') || '—';
   }
+  const melodyOctRange = state.melodyOctaveRange ?? 1;
+  const bassOctRange = state.bassOctaveRange ?? 1;
+
   if (regenMelody) {
-    arr.melodyArray = randomMelody([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], melodyCount, 0.25);
+    const melodyPool = getScaleDegreePool('melody', melodyOctRange);
+    arr.melodyArray = randomMelody(melodyPool, melodyCount, 0.25);
   }
   if (regenBass) {
-    arr.bassArray = randomMelody([-7, -6, -5, -4, -3, -2, -1, 0, 1, 2], bassCount, 0.25);
+    const bassPool = getScaleDegreePool('bass', bassOctRange);
+    arr.bassArray = randomMelody(bassPool, bassCount, 0.25);
   }
   if (regenDrums || !arr.drumPattern) {
     const tsNum = state.timeSigNum || 4;
@@ -242,10 +299,23 @@ export function buildStrudelCode(state) {
   if (state.chordsOn) {
     const chordSound = state.sampleBanks?.chord || state.instruments?.chord || 'sawtooth';
     const cGain = (Number(state.chordsGain ?? 0.9) * masterGain).toFixed(2);
+    
+    let chordModifier = '.voicing()';
+    if (state.chordStyle === 'arp_up') {
+      chordModifier += '.arp("0 1 2 3").fast(2)';
+    } else if (state.chordStyle === 'arp_pendulum') {
+      chordModifier += '.arp("0 1 2 3 2 1").fast(2)';
+    } else if (state.chordStyle === 'stabs') {
+      chordModifier += '.struct("x [~ x] ~ x")';
+    }
+
     parts.push(
-      `\n//chords\n  slowcat(${formatChordPattern(chordArray)})\n.voicing()\n.s("${chordSound}")\n.transpose(${chordT})\n.gain(${cGain})${getFx("chords")}\n.slow(${chordSlow})`,
+      `\n//chords\n  slowcat(${formatChordPattern(chordArray)})\n${chordModifier}\n.s("${chordSound}")\n.transpose(${chordT})\n.gain(${cGain})${getFx("chords")}\n.slow(${chordSlow})`,
     );
   }
+
+  const globalScaleMode = state.scaleMode || 'minor';
+  const scaleStr = `C:${SCALES[globalScaleMode]?.scaleStr || 'minor'}`;
 
   // ─── Bass ───
   // Fixed slow(noteSpan). Density only changes note count.
@@ -255,7 +325,7 @@ export function buildStrudelCode(state) {
     const bassSound = state.sampleBanks?.bass || state.instruments?.bass || 'sawtooth';
     const bGain = (Number(state.bassGain ?? 0.15) * masterGain).toFixed(2);
     parts.push(
-      `\n//bass\n  n(seq(${formatMelodySeq(bassArray)}))\n.scale("C:minor")\n.s("${bassSound}")\n.transpose(${bassT})\n.gain(${bGain})${getFx("bass")}\n.slow(${noteSpan})`,
+      `\n//bass\n  n(seq(${formatMelodySeq(bassArray)}))\n.scale("${scaleStr}")\n.s("${bassSound}")\n.transpose(${bassT})\n.gain(${bGain})${getFx("bass")}\n.slow(${noteSpan})`,
     );
   }
 
@@ -268,7 +338,7 @@ export function buildStrudelCode(state) {
     const leadSound = state.sampleBanks?.lead || state.instruments?.lead || 'triangle';
     const mGain = (Number(state.melodyGain ?? 0.5) * masterGain).toFixed(2);
     parts.push(
-      `\n//melody\n  n(seq(${formatMelodySeq(melodyArray)}))\n.scale("C:minor")\n.s("${leadSound}")\n.transpose(${leadT})\n.gain(${mGain})${getFx("melody")}\n.slow(${noteSpan})`,
+      `\n//melody\n  n(seq(${formatMelodySeq(melodyArray)}))\n.scale("${scaleStr}")\n.s("${leadSound}")\n.transpose(${leadT})\n.gain(${mGain})${getFx("melody")}\n.slow(${noteSpan})`,
     );
   }
 
@@ -281,7 +351,7 @@ setcpm(${state.cpm});
 stack(
   ${parts.join(',\n  ')}
 
-).speed(${state.speed.toFixed(2)}).play()
+).fast(${state.speed.toFixed(2)}).play()
 `.trim();
 }
 

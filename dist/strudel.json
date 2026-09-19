@@ -1,6 +1,7 @@
 {
   "_base": "./samples/",
   "audience_lead": [
+    "dac_aheh.webm",
     "audience_lead_1787466608897.webm",
     "ahooga.webm",
     "audience_lead_1787466298189.webm",
@@ -13,6 +14,9 @@
     "bass.webm"
   ],
   "audience_chord": [
+    "brian_chord.webm",
+    "audience_chord_1787537310295.webm",
+    "audience_chord_1787537306486.webm",
     "ehh_chord.webm",
     "oh_chord.webm"
   ],
@@ -45,5 +49,9 @@
   "ooh_lead": "ooh_lead.webm",
   "audience_lead_1787466298189": "audience_lead_1787466298189.webm",
   "ahooga": "ahooga.webm",
-  "audience_lead_1787466608897": "audience_lead_1787466608897.webm"
+  "audience_lead_1787466608897": "audience_lead_1787466608897.webm",
+  "dac_aheh": "dac_aheh.webm",
+  "audience_chord_1787537306486": "audience_chord_1787537306486.webm",
+  "audience_chord_1787537310295": "audience_chord_1787537310295.webm",
+  "brian_chord": "brian_chord.webm"
 }

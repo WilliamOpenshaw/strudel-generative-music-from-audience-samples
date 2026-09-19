@@ -9,7 +9,6 @@ const CC_MAP = {
   1: 'gain',         // Master Gain
   2: 'speed',        // Speed (Playback Rate)
   3: 'cpm',          // CPM (Tempo)
-  4: 'transpose',    // Transpose
   5: 'drumsGain',
   6: 'chordsGain',
   7: 'bassGain',
@@ -46,26 +45,27 @@ const PAD_MAP = {
   15: 'pitch:reset',
   16: 'pitch:up',
 
-  // Pad Bank 2 (Notes 21-36)
-  21: 'effectReset:all',
-  22: 'effectReset:drums',
-  23: 'effectReset:chords',
-  24: 'effectReset:bass',
-  25: 'effectReset:melody',
-  26: 'densityHalf:melody',
-  27: 'densityDouble:melody',
-  28: 'densityHalf:bass',
-  29: 'densityDouble:bass',
-  30: 'densityHalf:drums',
-  31: 'densityDouble:drums',
-  32: 'record:start',
-  33: 'record:stop',
+  // Pad Bank 2 (Notes 21-36, physically Pads 1-16)
+  21: 'padSample:1',
+  22: 'padSample:2',
+  23: 'padSample:3',
+  24: 'padSample:4',
+  25: 'padSample:5',
+  26: 'padSample:6',
+  27: 'padSample:7',
+  28: 'padSample:8',
+  29: 'padSample:9',
+  30: 'padSample:10',
+  31: 'padSample:11',
+  32: 'padSample:12',
+  33: 'padSample:13',
+  34: 'padSample:14',
+  35: 'padSample:15',
+  36: 'padBank:toggle', // Pad 16 toggles the active pad bank
 };
 
 // Additional button actions triggered via CC (value > 0)
 const CC_BUTTON_MAP = {
-  25: 'pitch:down',      // Left
-  26: 'pitch:up',        // Right
   27: 'transport:start', // Play
   28: 'transport:stop',  // Pause
   29: 'record:toggle'    // Record
@@ -76,7 +76,6 @@ const RANGES = {
   gain: [0, 1],
   speed: [0.25, 2],
   cpm: [60, 180],
-  transpose: [-12, 12],
   drumsGain: [0, 1],
   chordsGain: [0, 1],
   bassGain: [0, 1],
@@ -192,7 +191,8 @@ function handleMIDIMessage(message, getState, onParameterChange, onAction, onRaw
         if (delta < -63) delta += 128;
 
         if (delta !== 0) {
-          const isInt = paramKey === 'cpm' || paramKey === 'transpose' || paramKey.endsWith('Lpf');
+          // For cpm/LPF we want integer steps, else float
+          const isInt = paramKey === 'cpm' || paramKey.endsWith('Lpf');
           const stepSize = (range[1] - range[0]) / 127;
           
           let currentVal = getState ? getState(paramKey) : undefined;

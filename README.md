@@ -299,6 +299,13 @@ The full build order (20 features across 6 phases) is documented in `planning no
 | 5. Strudel REPL embed | Pianoroll + live coding alongside dashboard | ✅ Complete |
 | 6. Audience phone UI | ~4 mobile buttons with guardrails | ✅ Complete |
 
+### Recent Enhancements
+
+- **Expanded Sample Banks:** Added two switchable tabs in the dashboard for assigning up to 30 samples to MIDI pads. The 16th pad acts as a bank toggle for both the UI and MIDI controllers.
+- **Enhanced Audience Controls:** Updated the mobile browser controls to display the assigned sample filename on each pad. Added an info bar to provide feedback on recent actions (e.g., rate limit cooldowns and effect changes).
+- **Improved Regenerate All:** Enhanced the "Regenerate all" and "New Melody/Bass" dashboard buttons to also randomize instruments for each track, chord style, progression length, scale/mode, and note density. Added random recorded sample buttons (🎙️) to the instruments section.
+- **Refined Transpose Controls:** Removed global transpose (whole song up/down) from the dashboard and MIDI mapping. Modified the "Track Pitch" controls to shift up/down by two steps at a time.
+- **Robust Sample State Management:** Improved the workflow for saving, trimming, ADSR, and renaming samples. Renames now immediately reflect across the UI, seamlessly updating active track and pad assignments without dropping a beat or requiring a browser refresh.
 ---
 
 ## Licensing

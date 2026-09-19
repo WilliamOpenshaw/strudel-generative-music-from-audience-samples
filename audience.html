@@ -19,23 +19,17 @@
       </div>
     </header>
 
-    <div class="button-grid">
-      <button class="action-btn" data-action="more_energy" type="button" id="btn-more-energy">
-        <span class="btn-icon">🔥</span>
-        <span>More energy</span>
-      </button>
-      <button class="action-btn" data-action="calmer" type="button" id="btn-calmer">
-        <span class="btn-icon">🌊</span>
-        <span>Calmer</span>
-      </button>
-      <button class="action-btn" data-action="new_chords" type="button" id="btn-new-chords">
-        <span class="btn-icon">🎵</span>
-        <span>New chords</span>
-      </button>
-      <button class="action-btn" data-action="weird" type="button" id="btn-weird">
-        <span class="btn-icon">✨</span>
-        <span>Weird</span>
-      </button>
+    <div id="audience-info-bar" class="audience-info-bar">
+      Welcome! Tap a button to shape the music.
+    </div>
+    <div class="pagination-controls">
+      <button class="nav-btn" id="btn-prev" type="button">◀ Prev</button>
+      <span class="bank-indicator" id="bank-indicator">Page 1</span>
+      <button class="nav-btn" id="btn-next" type="button">Next ▶</button>
+    </div>
+
+    <div class="button-grid" id="button-grid">
+      <!-- Buttons will be injected here dynamically by audience.js -->
     </div>
 
     <footer class="audience-footer">

@@ -9,12 +9,33 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <!-- strudel-editor component is registered by the npm @strudel/repl package -->
-    <script type="module" crossorigin src="/assets/main-CsTIlQd5.js"></script>
-    <link rel="modulepreload" crossorigin href="/assets/protocol-D7lvXZsz.js">
-    <link rel="stylesheet" crossorigin href="/assets/main-B69yNAYM.css">
+    <script type="module" crossorigin src="/assets/main-7OLNqnBQ.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/protocol-DyBITW4w.js">
+    <link rel="stylesheet" crossorigin href="/assets/main-COBFb5jD.css">
   </head>
   <body>
-    <div class="app-layout">
+    <!-- Global Dashboard Tab Navigation -->
+    <nav class="dashboard-tabs-nav" role="tablist" aria-label="Dashboard views">
+      <div class="tabs-nav-container">
+        <div class="tabs-nav-brand">
+          <span class="brand-logo">🎹</span>
+          <span class="brand-name">Strudel Live</span>
+        </div>
+        <div class="tabs-buttons-group">
+          <button type="button" role="tab" id="tab-btn-dashboard" class="dashboard-tab-btn active" aria-selected="true" aria-controls="tab-content-dashboard">
+            🎛️ Performance Dashboard
+          </button>
+          <button type="button" role="tab" id="tab-btn-audience-portal" class="dashboard-tab-btn" aria-selected="false" aria-controls="tab-content-audience-portal">
+            📡 Audience Portal &amp; Wi-Fi
+          </button>
+        </div>
+        <div class="tabs-nav-right">
+          <span class="tab-shortcut-hint">Switch tabs: <kbd>Ctrl</kbd>+<kbd>1</kbd> / <kbd>Ctrl</kbd>+<kbd>2</kbd></span>
+        </div>
+      </div>
+    </nav>
+
+    <div class="app-layout" id="tab-content-dashboard" role="tabpanel" aria-labelledby="tab-btn-dashboard">
       <main>
       <header>
         <h1>Strudel Dashboard</h1>
@@ -27,12 +48,16 @@
           <div id="debug-status-display">Debug: idle</div>
           <canvas id="audio-meter" width="100" height="20" aria-label="Audio Meter" style="border-radius: 100px; border: 1px solid var(--border-subtle); display: block;"></canvas>
         </div>
+        <div id="midi-last-cmd-display" style="color: #4ade80; font-family: monospace; padding: 4px 8px; background: rgba(0,0,0,0.3); border-radius: 4px; margin-top: 0.75rem; display: inline-block;">Last MIDI: None</div>
       </header>
 
       <!-- Audience Control Panel -->
       <section class="audience-panel" aria-label="Audience Live Control">
         <div class="audience-panel-title">
           <span>Audience Control</span>
+          <button type="button" id="quick-switch-audience-portal-btn" class="audience-projection-btn" title="Switch to Audience Projection Tab">
+            📡 Project Wi-Fi &amp; QR
+          </button>
           <a href="/audience.html" target="_blank" class="audience-page-btn" title="Open audience interaction page">
             📱 Open /audience.html ↗
           </a>
@@ -234,6 +259,33 @@
           <div id="drums-density-display">8</div>
           <button id="drums-density-up" type="button" aria-label="More drum elements">+</button>
           <button id="drums-density-double" type="button" aria-label="Double drum elements">×2</button>
+        </div>
+      </section>
+
+      <!-- Octave Range (Generative Randomness) -->
+      <section class="octave-range-controls" aria-label="Octave range">
+        <span>Oct Range</span>
+        <div class="octave-range-row">
+          <label>Melody</label>
+          <button id="melody-oct-range-down" type="button" aria-label="Decrease melody octave range">−</button>
+          <div id="melody-oct-range-display" class="oct-range-display" title="Click to cycle range (1 → 3 → 5 → 1)">1 Oct (Current)</div>
+          <button id="melody-oct-range-up" type="button" aria-label="Increase melody octave range">+</button>
+          <div class="oct-range-pills">
+            <button id="melody-oct-range-1" type="button" class="oct-pill active" data-track="melody" data-range="1">1 Oct</button>
+            <button id="melody-oct-range-3" type="button" class="oct-pill" data-track="melody" data-range="3">3 Oct</button>
+            <button id="melody-oct-range-5" type="button" class="oct-pill" data-track="melody" data-range="5">5 Oct</button>
+          </div>
+        </div>
+        <div class="octave-range-row">
+          <label>Bass</label>
+          <button id="bass-oct-range-down" type="button" aria-label="Decrease bass octave range">−</button>
+          <div id="bass-oct-range-display" class="oct-range-display" title="Click to cycle range (1 → 3 → 5 → 1)">1 Oct (Current)</div>
+          <button id="bass-oct-range-up" type="button" aria-label="Increase bass octave range">+</button>
+          <div class="oct-range-pills">
+            <button id="bass-oct-range-1" type="button" class="oct-pill active" data-track="bass" data-range="1">1 Oct</button>
+            <button id="bass-oct-range-3" type="button" class="oct-pill" data-track="bass" data-range="3">3 Oct</button>
+            <button id="bass-oct-range-5" type="button" class="oct-pill" data-track="bass" data-range="5">5 Oct</button>
+          </div>
         </div>
       </section>
 
@@ -648,6 +700,14 @@
         </div>
       </section>
 
+      <!-- Pad Bank 2 (One-Shot Samples) -->
+      <section class="pad-bank-panel" aria-label="Pad Bank 2">
+        <span>Pad Bank 2</span>
+        <div class="pad-bank-grid" id="pad-bank-grid">
+          <!-- Populated by JavaScript -->
+        </div>
+      </section>
+
       <!-- Live readouts -->
       <section class="readouts" aria-label="Live readouts">
         <div id="cpm-display">CPM: 120</div>
@@ -717,6 +777,164 @@
         </div>
       </aside>
     </div>
+
+    <!-- Audience Portal & Wi-Fi Tab (Projection Mode) -->
+    <section id="tab-content-audience-portal" class="audience-portal-tab" role="tabpanel" aria-labelledby="tab-btn-audience-portal" style="display: none;">
+      <div class="portal-container">
+        <!-- Projection Header -->
+        <header class="portal-header">
+          <div class="portal-title-block">
+            <span class="portal-pill-badge">STAGE INTERACTION PORTAL</span>
+            <h2 class="portal-main-heading">Join the Live Performance</h2>
+            <p class="portal-subheading">Connect to local Wi-Fi and scan the code below with your phone to shape the music!</p>
+          </div>
+          <div class="portal-header-actions">
+            <button type="button" id="portal-fullscreen-btn" class="portal-action-btn" title="Toggle Fullscreen for Projector">
+              ⛶ Fullscreen Projector
+            </button>
+            <button type="button" id="portal-refresh-btn" class="portal-action-btn" title="Refresh Wi-Fi & Network Status">
+              ↻ Refresh Network
+            </button>
+            <div class="portal-audience-badge">
+              <span class="portal-indicator-dot"></span>
+              <span id="portal-audience-count">0 Audience Connected</span>
+            </div>
+          </div>
+        </header>
+
+        <!-- Main Projection Grid -->
+        <div class="portal-cards-grid">
+          <!-- Card 1: Step 1 Wi-Fi Connection -->
+          <div class="portal-card wifi-card">
+            <div class="card-step-header">
+              <span class="card-step-num">1</span>
+              <div>
+                <h3 class="card-title">Connect to Wi-Fi</h3>
+                <p class="card-subtitle">Join this wireless network on your phone</p>
+              </div>
+            </div>
+
+            <div class="card-body">
+              <!-- Wi-Fi SSID Section -->
+              <div class="portal-field-group">
+                <div class="field-label-row">
+                  <span class="field-label">Wi-Fi Network Name (SSID)</span>
+                  <button type="button" id="wifi-ssid-edit-toggle" class="portal-link-btn" title="Change Network Name">✏️ Edit</button>
+                </div>
+
+                <!-- Prominent SSID Display for Audience -->
+                <div id="wifi-ssid-display-box" class="prominent-display-box">
+                  <span class="display-icon">📶</span>
+                  <span id="wifi-ssid-display" class="prominent-value">Detecting Wi-Fi…</span>
+                </div>
+
+                <!-- Manual Edit Input (hidden by default) -->
+                <div id="wifi-ssid-edit-box" class="portal-inline-edit" style="display: none;">
+                  <input type="text" id="wifi-ssid-input" class="portal-text-input" placeholder="Enter Wi-Fi SSID..." />
+                  <button type="button" id="wifi-ssid-save-btn" class="portal-btn-primary">Save</button>
+                  <button type="button" id="wifi-ssid-cancel-btn" class="portal-btn-subtle">Cancel</button>
+                </div>
+              </div>
+
+              <!-- Wi-Fi Password Section -->
+              <div class="portal-field-group">
+                <div class="field-label-row">
+                  <span class="field-label">Wi-Fi Password</span>
+                  <button type="button" id="wifi-pw-visibility-btn" class="portal-link-btn" title="Toggle Show/Hide Password">👁️ Hide on Screen</button>
+                </div>
+
+                <!-- Operator Text Entry Window -->
+                <div class="portal-password-entry">
+                  <input 
+                    type="text" 
+                    id="wifi-password-input" 
+                    class="portal-text-input password-input-field" 
+                    placeholder="Type Wi-Fi password here..." 
+                    autocomplete="off" 
+                    spellcheck="false" 
+                  />
+                  <button type="button" id="wifi-password-clear-btn" class="portal-btn-subtle" title="Clear Password">✕</button>
+                </div>
+
+                <!-- Giant, Crystal-Clear Monospace Password Display for Projection -->
+                <div class="password-screen-container">
+                  <div class="pw-screen-top">
+                    <span class="pw-screen-tag">PROJECTED PASSWORD</span>
+                    <button type="button" id="copy-wifi-pw-btn" class="portal-link-btn" title="Copy Password to Clipboard">📋 Copy</button>
+                  </div>
+                  <div id="wifi-password-display" class="giant-password-display">No password required / None set</div>
+                </div>
+
+                <p class="field-helper-text">
+                  💡 The password typed above is projected in large text for the room and automatically saved in your browser.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 2: Step 2 Open Audience Web Page & QR Code -->
+          <div class="portal-card url-card">
+            <div class="card-step-header">
+              <span class="card-step-num">2</span>
+              <div>
+                <h3 class="card-title">Join the Interaction</h3>
+                <p class="card-subtitle">Scan the QR code or visit the web address below</p>
+              </div>
+            </div>
+
+            <div class="card-body center-content">
+              <!-- QR Code Box -->
+              <div class="portal-qr-wrapper">
+                <div class="qr-canvas-frame">
+                  <canvas id="audience-qr-canvas" width="280" height="280" aria-label="QR code to join audience session"></canvas>
+                </div>
+                <div class="qr-scan-label">
+                  <span id="qr-scan-label-text">📷 Point phone camera at QR code</span>
+                </div>
+              </div>
+
+              <!-- URL Display Box -->
+              <div class="portal-field-group full-width">
+                <div class="field-label-row">
+                  <span class="field-label">Audience Web Address</span>
+                  <button type="button" id="copy-url-btn" class="portal-link-btn" title="Copy URL to Clipboard">📋 Copy URL</button>
+                </div>
+                <div class="url-screen-container">
+                  <a id="audience-url-link" href="#" target="_blank" class="audience-url-display-link" title="Open audience interaction page in new tab">
+                    http://...
+                  </a>
+                </div>
+              </div>
+
+              <!-- Network Interface Selection (if multiple IP addresses exist) -->
+              <div id="network-interfaces-container" class="portal-interfaces-row" style="display: none;">
+                <span class="interface-label">Network IP:</span>
+                <select id="network-interfaces-select" class="portal-dropdown" aria-label="Select Network Interface"></select>
+              </div>
+
+              <!-- QR Toggle: Audience Web URL vs Direct Wi-Fi QR -->
+              <div class="portal-qr-mode-switch">
+                <button type="button" id="toggle-qr-wifi-mode-btn" class="portal-secondary-switch-btn">
+                  📶 Switch to Wi-Fi Join QR
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Projection Footer Info -->
+        <footer class="portal-footer">
+          <div class="footer-tip-item">
+            <span class="tip-icon">🎤</span>
+            <span><strong>Sample Yourself:</strong> Record or upload sounds to hear them synthesized live!</span>
+          </div>
+          <div class="footer-tip-item">
+            <span class="tip-icon">⚡</span>
+            <span><strong>Live Votes:</strong> Trigger energy shifts, calmer grooves, or strange mutations!</span>
+          </div>
+        </footer>
+      </div>
+    </section>
 
   </body>
 </html>
