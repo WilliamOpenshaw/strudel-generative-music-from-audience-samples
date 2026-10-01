@@ -8,7 +8,7 @@ import { MSG, ACTIONS, ACTION_LABELS } from './protocol.js';
 let ws = null;
 let reconnectTimeout = null;
 
-export function initOperatorWS({ onAction, onStatus, onLockUpdate }) {
+export function initOperatorWS({ onAction, onStatus, onLockUpdate, onOpen }) {
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
   const url = `${protocol}//${location.host}/ws?role=operator`;
 
@@ -24,6 +24,7 @@ export function initOperatorWS({ onAction, onStatus, onLockUpdate }) {
     ws.onopen = () => {
       console.info('[ws-operator] Connected to server as operator');
       if (onStatus) onStatus({ connected: true, audienceCount: 0 });
+      if (onOpen) onOpen();
     };
 
     ws.onclose = () => {
@@ -67,9 +68,9 @@ export function initOperatorWS({ onAction, onStatus, onLockUpdate }) {
         ws.send(JSON.stringify({ type: MSG.TOGGLE_LOCK, action }));
       }
     },
-    syncPads: (padLabels) => {
+    syncPads: ({ padLabels, padKinds, bankTitle }) => {
       if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: MSG.SYNC_PADS, padLabels }));
+        ws.send(JSON.stringify({ type: MSG.SYNC_PADS, padLabels, padKinds, bankTitle }));
       }
     }
   };

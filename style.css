@@ -2402,6 +2402,32 @@ section > div[id$='-display'] {
   cursor: pointer;
 }
 
+/* ─── Pad Display window (pads.html) ─────────────── */
+.pad-display {
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.pad-display .performer-pad {
+  cursor: default;
+}
+
+.pad-display-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.pad-display-status {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.pad-display-status.live {
+  color: #4ade80;
+}
+
 .performer-pad.toggle-pad {
   background: rgba(255, 100, 100, 0.1);
   border-color: #ff6464;

@@ -199,6 +199,17 @@ On the main operator dashboard, you will find an **Audience Controls** panel ben
 
 ---
 
+## Pad Display on a Second Screen
+
+You can show the **Sample Pad Assignments** view in its own window, for example on a second monitor or a projector, while you keep controlling the dashboard on your main screen.
+
+1. In the dashboard, open the **🎹 Sample Pad Assignments** tab and click **↗ Open in Separate Window**. Or open `http://localhost:3000/pads.html` directly.
+2. Drag that window to the other screen and click **⛶ Fullscreen**.
+
+The pad display is a live, read-only mirror of the dashboard. It updates when you switch banks, reassign pads, change the Bank 3 instrument or Bank 4 sample, or when the playing chord changes. It makes no sound itself, so audio always comes from the dashboard window. Keep exactly one dashboard window open: each dashboard window runs its own separate music engine.
+
+---
+
 ## Stopping the Dev Server
 
 When you're done, go back to the terminal where `npm run dev` is running and press **Ctrl + C** to stop the server.

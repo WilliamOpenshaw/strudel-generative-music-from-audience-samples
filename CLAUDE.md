@@ -13,10 +13,11 @@ Browser-based generative music system for live performances, built on [Strudel](
 
 - Operator dashboard: `http://localhost:3000/`
 - Audience phone UI: `http://localhost:3000/audience.html`
+- Pad display (second screen): `http://localhost:3000/pads.html`
 
 ## Architecture
 
-- `server.js` — Express + `ws` server. Serves the app (Vite middleware in dev, static `dist/` in prod), hosts the WebSocket bridge at `/ws?role=operator` and `/ws?role=audience`, and exposes `GET /api/network-info` (LAN IP for the dashboard's QR code) and `GET /api/sample-dates` (sample file creation times, used to order renamed samples newest-first). Server changes need a restart; there's no HMR for `server.js`.
+- `server.js` — Express + `ws` server. Serves the app (Vite middleware in dev, static `dist/` in prod), hosts the WebSocket bridge at `/ws?role=operator`, `/ws?role=audience`, and `/ws?role=display` (read-only pad screens; not counted as audience). It caches the last `SYNC_PADS` so late joiners get the current pad layout. It also exposes `GET /api/network-info` (LAN IP for the dashboard's QR code) and `GET /api/sample-dates` (sample file creation times, used to order renamed samples newest-first). Server changes need a restart; there's no HMR for `server.js`.
 - `src/state.js` — single shared state object (tempo, gain, per-layer effects/transpose/octave, pad bank assignments, etc.). Dashboard writes to it, the generative engine reads from it.
 - `src/patterns/generative.js` — the generative arrangement engine (random chords/melody/bassline, scales, density).
 - `src/ws/protocol.js` — shared WS message/action definitions, imported by both server and browser code (no Node- or DOM-specific APIs allowed here). `RATE_LIMIT_MS = 5000` governs audience action throttling.
@@ -25,6 +26,7 @@ Browser-based generative music system for live performances, built on [Strudel](
 - `src/pads/chordPads.js` — pure logic for pad banks 3-4 (current chord → 14 pad notes, melody instrument pool). Pad banks: 1-2 recorded one-shots (auto-filled at startup with the 30 newest renamed samples), 3 chord notes on an instrument, 4 chord notes on a pitch-shifted recorded sample. Pad 15 in banks 3-4 changes the instrument/sample; pad 16 always switches bank. `triggerPad()` in `dashboard.js` is the single entry point for MIDI, on-screen, and audience pad presses.
 - `src/soundfonts/` — built-in instrument fallbacks used when a sample slot is empty.
 - `dashboard.js` / `index.html` / `style.css` — operator UI. Playback runs on the `<strudel-editor>` element's repl, not `globalRepl` from `initStrudel` (whose scheduler idles at the default 0.5 cps). Read the live clock via `activeScheduler()`. The editor's package bundles its **own copy of the audio engine with a separate sound registry**, so a sound registered only through `@strudel/web` (e.g. `samples()` imported from it) is "not found" in tracks. Register local recordings via `registerAudienceSamples()` in `src/samples/register.js`, which loads them into both engines.
+- `pads.html` / `pads.js` — read-only mirror of the Sample Pad Assignments tab for a second window/screen, fed by `SYNC_PADS` over `role=display`. Every page instance runs its own engine, so additional *dashboard* windows don't mirror each other; separate views must go through the WebSocket bridge like this. Grid rendering is shared via `src/pads/padGrid.js`.
 - `audience.js` / `audience.html` / `audience.css` — audience phone UI (4 rate-limited buttons: more energy, calmer, new chords, weird).
 - `strudel code/` — original REPL-era scripts, kept as reference only (not imported by the app).
 - `planning notes.txt`, `General Idea.txt` — design/roadmap notes, not code.

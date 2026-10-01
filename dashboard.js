@@ -14,6 +14,7 @@ import {
   noteName,
   instrumentLabel,
 } from './src/pads/chordPads.js';
+import { PAD_DISPLAY_ORDER, renderPadGrid } from './src/pads/padGrid.js';
 import { initMIDI } from './src/midi/midi.js';
 import { initSampleEditor, setOnCatalogUpdated } from './src/samples/editor.js';
 import { initSampleRecorder } from './src/samples/recorder.js';
@@ -963,6 +964,8 @@ function setupAudienceBridge() {
   }
 
   operatorWsClient = initOperatorWS({
+    // Pad syncs sent before the socket opened were dropped; resend on every (re)connect.
+    onOpen: () => broadcastPadSync(),
     onStatus: ({ connected, audienceCount }) => {
       if (countBadge) countBadge.textContent = audienceCount;
       if (statusPill) statusPill.textContent = connected ? `👥 ${audienceCount} connected` : '⚠️ Disconnected';
@@ -1101,13 +1104,6 @@ let padBankAudioCtx = null;
 let hasAssignedPadBankDefaults = false;
 let renamedSamples = [];
 let lastRenderedPadChord = null;
-
-const PAD_DISPLAY_ORDER = [
-  12, 13, 14, 15, // Row 1 (Top): Pads 13-16
-  8,  9,  10, 11, // Row 2: Pads 9-12
-  4,  5,  6,  7,  // Row 3: Pads 5-8
-  0,  1,  2,  3,  // Row 4 (Bottom): Pads 1-4
-];
 
 const isNoteBank = (bank) => bank === 3 || bank === 4;
 const nextPadBank = (bank) => (bank % PAD_BANK_COUNT) + 1;
@@ -1399,55 +1395,43 @@ function updatePadBank2SelectsUI() {
   });
 }
 
-export function broadcastPadSync() {
-  if (!operatorWsClient) return;
+function padKind(padNum) {
+  const bank = state.activePadBank;
+  if (padNum === BANK_TOGGLE_PAD) return 'toggle';
+  if (isNoteBank(bank)) return padNum === NOTE_BANK_CYCLE_PAD ? 'cycle' : 'note';
+  return state.padBanks[bank][padNum] ? 'assigned' : 'empty';
+}
+
+/** Pad layout keyed `pad_1`…`pad_16`, shared by the performer tab, pads.html, and audience phones. */
+function currentPadLayout() {
+  const chord = currentPadChord();
   const notes = currentPadNotes();
   const padLabels = {};
+  const padKinds = {};
   for (let pad = 1; pad <= 16; pad++) {
     padLabels[`pad_${pad}`] = padLabel(pad, notes);
+    padKinds[`pad_${pad}`] = padKind(pad);
   }
-  operatorWsClient.syncPads(padLabels);
+  return { chord, padLabels, padKinds, bankTitle: padBankTitle(chord) };
+}
+
+export function broadcastPadSync(layout = currentPadLayout()) {
+  if (!operatorWsClient) return;
+  const { padLabels, padKinds, bankTitle } = layout;
+  operatorWsClient.syncPads({ padLabels, padKinds, bankTitle });
 }
 
 export function updatePerformerTab() {
-  broadcastPadSync(); // Tell audience clients about the new pad layout
-  const grid = document.getElementById('performer-pad-grid');
+  const layout = currentPadLayout();
+  broadcastPadSync(layout); // Tell audience phones and pad display windows about the new layout
+  lastRenderedPadChord = layout.chord;
+
   const bankTitle = document.getElementById('performer-bank-title');
-  if (!grid) return;
+  if (bankTitle) bankTitle.innerText = layout.bankTitle;
 
-  const activeBankNum = state.activePadBank;
-  const chord = currentPadChord();
-  const notes = currentPadNotes();
-  lastRenderedPadChord = chord;
-
-  if (bankTitle) {
-    bankTitle.innerText = padBankTitle(chord);
-  }
-
-  grid.innerHTML = '';
-
-  for (const i of PAD_DISPLAY_ORDER) {
-    const padNum = i + 1;
-    const item = document.createElement('div');
-    item.className = 'performer-pad';
-
-    if (padNum === BANK_TOGGLE_PAD) {
-      item.classList.add('toggle-pad');
-    } else if (isNoteBank(activeBankNum)) {
-      item.classList.add(padNum === NOTE_BANK_CYCLE_PAD ? 'cycle-pad' : 'note-pad');
-    } else if (state.padBanks[activeBankNum][padNum]) {
-      item.classList.add('assigned');
-    }
-
-    const num = document.createElement('div');
-    num.className = 'pad-num';
-    num.textContent = padNum;
-    const name = document.createElement('div');
-    name.className = 'pad-name';
-    name.textContent = padLabel(padNum, notes);
-    item.append(num, name);
-    item.addEventListener('click', () => triggerPad(padNum));
-    grid.appendChild(item);
+  const grid = document.getElementById('performer-pad-grid');
+  if (grid) {
+    renderPadGrid(grid, { labels: layout.padLabels, kinds: layout.padKinds, onPadClick: triggerPad });
   }
 }
 
@@ -1841,6 +1825,10 @@ document.addEventListener('DOMContentLoaded', () => {
   for (let bank = 1; bank <= PAD_BANK_COUNT; bank++) {
     document.getElementById(`bank-toggle-${bank}`)?.addEventListener('click', () => setActivePadBank(bank));
   }
+  // A named popup so repeat clicks re-focus the same window instead of opening more.
+  document.getElementById('open-pad-display-btn')?.addEventListener('click', () => {
+    window.open('/pads.html', 'strudel-pad-display', 'popup,width=1280,height=860')?.focus();
+  });
   setInterval(refreshNotePadsIfChordChanged, 100);
 
   // Initialize MIDI
