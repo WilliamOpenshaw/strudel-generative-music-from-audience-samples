@@ -113,11 +113,12 @@ function formatDrumFallback() {
 
 /**
  * Generate a procedural drum pattern based on density and time signature beats.
- * Density (1-64) determines the probability of hits and subdivisions.
+ * Density (1-128) determines the probability of hits and subdivisions.
  */
 export function generateProceduralDrumPattern(density, beats, isAudience) {
   const elements = [];
-  const normalizedDensity = Math.max(1, Math.min(64, density)) / 64; // 0.0 to 1.0
+  // 1.0 at 64; 128 goes past it to add even more subdivisions.
+  const normalizedDensity = Math.max(1, Math.min(128, density)) / 64;
 
   const insts = isAudience ? ['0'] : ['bd', 'sd', 'hh'];
 
@@ -157,8 +158,8 @@ export function createArrangement(state, { regenChords = true, regenMelody = tru
   const arr = state._arrangement;
 
   // Density = how many note/silence elements to generate
-  const melodyCount = Math.max(1, Math.min(64, state.melodyDensity ?? 8));
-  const bassCount = Math.max(1, Math.min(64, state.bassDensity ?? 8));
+  const melodyCount = Math.max(1, Math.min(128, state.melodyDensity ?? 8));
+  const bassCount = Math.max(1, Math.min(128, state.bassDensity ?? 8));
 
   if (regenChords) {
     const scaleMode = state.scaleMode || 'minor';
@@ -191,7 +192,7 @@ export function createArrangement(state, { regenChords = true, regenMelody = tru
   }
   if (regenDrums || !arr.drumPattern) {
     const tsNum = state.timeSigNum || 4;
-    const drumDensity = Math.max(1, Math.min(64, state.drumsDensity ?? 8));
+    const drumDensity = Math.max(1, Math.min(128, state.drumsDensity ?? 8));
     arr.drumPattern = generateProceduralDrumPattern(drumDensity, tsNum, false);
     arr.audienceDrumPattern = generateProceduralDrumPattern(drumDensity, tsNum, true);
   }
@@ -226,7 +227,7 @@ export function buildStrudelCode(state) {
   const chordSlow = cyclesPerMeasure;       // 4 in 4/4 — matches original slow(16)/4 chords
 
   // Drums: density is handled by the procedural generator, so we just span it over 1 measure.
-  const drumDensity = Math.max(1, Math.min(64, state.drumsDensity ?? 16));
+  const drumDensity = Math.max(1, Math.min(128, state.drumsDensity ?? 16));
   const drumSlow = cyclesPerMeasure;
 
   // ─── Per-track transpose ───
@@ -342,8 +343,11 @@ export function buildStrudelCode(state) {
     );
   }
 
+  // No trailing .play(): evaluate() already autoplays the returned pattern, and
+  // @strudel/web's Pattern.prototype.play would also start it on the global repl
+  // (which never gets setcpm) — a second, slower "ghost" copy of the arrangement.
   if (parts.length === 0) {
-    return 'silence.play()';
+    return 'silence';
   }
 
   return `
@@ -351,7 +355,7 @@ setcpm(${state.cpm});
 stack(
   ${parts.join(',\n  ')}
 
-).fast(${state.speed.toFixed(2)}).play()
+).fast(${state.speed.toFixed(2)})
 `.trim();
 }
 

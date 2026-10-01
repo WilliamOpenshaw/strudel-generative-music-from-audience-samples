@@ -12,7 +12,7 @@
 import { createServer as createHttpServer } from 'http';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
-import { writeFile, readFile, readdir } from 'fs/promises';
+import { writeFile, readFile, readdir, stat } from 'fs/promises';
 import os from 'os';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -267,6 +267,29 @@ app.post('/rename-sample', async (req, res) => {
   } catch (err) {
     console.error('[server] Error renaming sample:', err);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ─── Sample Dates Endpoint ────────────────────────────
+// Creation time survives renames and trim/ADSR re-saves, so it reflects when a
+// sample was originally recorded.
+app.get('/api/sample-dates', async (req, res) => {
+  try {
+    const samplesDir = resolve(__dirname, 'public', 'samples');
+    const entries = await readdir(samplesDir, { withFileTypes: true });
+    const dates = {};
+    await Promise.all(
+      entries
+        .filter((entry) => entry.isFile())
+        .map(async (entry) => {
+          const info = await stat(resolve(samplesDir, entry.name));
+          dates[entry.name] = info.birthtimeMs || info.mtimeMs;
+        }),
+    );
+    res.json(dates);
+  } catch (err) {
+    console.error('[server] Error reading sample dates:', err);
+    res.status(500).json({ error: 'Failed to read sample dates' });
   }
 });
 

@@ -106,24 +106,31 @@ export async function initMIDI({ getState, onParameterChange, onAction, onStatus
 
   try {
     const midiAccess = await navigator.requestMIDIAccess();
-    const inputs = midiAccess.inputs.values();
-    let connectedCount = 0;
 
-    for (let input of inputs) {
-      console.info(`[MIDI] Found device: ${input.name} (ID: ${input.id})`);
-      input.onmidimessage = (msg) => handleMIDIMessage(msg, getState, onParameterChange, onAction, onRawMessage);
-      connectedCount++;
-    }
+    const refresh = () => {
+      const names = [];
+      for (const input of midiAccess.inputs.values()) {
+        if (input.state !== 'connected') continue;
+        if (!input.onmidimessage) {
+          console.info(`[MIDI] Found device: ${input.name} (ID: ${input.id})`);
+          input.onmidimessage = (msg) => handleMIDIMessage(msg, getState, onParameterChange, onAction, onRawMessage);
+        }
+        names.push(input.name);
+      }
 
-    if (connectedCount > 0) {
-      onStatusUpdate(`MIDI: ${connectedCount} device(s) connected`);
-    } else {
-      onStatusUpdate('MIDI: No devices found');
-    }
+      if (names.length > 0) {
+        onStatusUpdate(`MIDI: ${names.length} device(s) connected`, names.join('\n'));
+      } else {
+        onStatusUpdate('MIDI: No devices found', '');
+      }
+    };
+
+    refresh();
 
     midiAccess.onstatechange = (e) => {
+      if (e.port.type !== 'input') return;
       console.info(`[MIDI] Device state changed: ${e.port.name}, ${e.port.state}`);
-      // Simple recount logic could go here
+      refresh();
     };
 
   } catch (err) {
