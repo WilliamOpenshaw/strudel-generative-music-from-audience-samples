@@ -39,8 +39,10 @@ export const state = {
   bassOctave: 0,
   drumsOctave: 0,
 
-  // Active Pad Bank (1 or 2)
+  // Active Pad Bank: 1-2 sample one-shots, 3 chord notes (instrument), 4 chord notes (recorded sample)
   activePadBank: 1,
+  notePadInstrument: 'gm_piano',
+  notePadSample: '',
 
   // Pad Bank assignments (Pads 1-15 -> sample key) for two banks
   padBanks: {

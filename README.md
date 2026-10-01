@@ -65,10 +65,10 @@ npm run dev
 You should see output like this:
 
 ```
-  VITE v5.x.x  ready in XXX ms
-
-  ➜  Local:   http://localhost:5173/
-  ➜  Network: http://192.168.x.x:5173/
+  Strudel Dashboard server running at:
+    ➜  Operator:  http://localhost:3000/
+    ➜  Audience:  http://localhost:3000/audience.html
+    ➜  Mode:      development
 ```
 
 ### Step 3: Open the dashboard in your browser
@@ -76,7 +76,7 @@ You should see output like this:
 Open your web browser (Chrome or Edge recommended) and go to:
 
 ```
-http://localhost:5173
+http://localhost:3000
 ```
 
 You should see the **Strudel Dashboard** — a dark-themed control panel with sliders, buttons, and readouts.
@@ -175,11 +175,11 @@ The dashboard includes a built-in realtime bridge that allows audience members t
 
 ### How to Connect the Audience
 1. **Find your local network IP address:**
-   When you start the server using `npm run dev` or `npm start`, look at the terminal output. It will show a "Network" address (e.g., `http://192.168.1.50:3000/`).
+   The dashboard fetches this for you automatically (via `/api/network-info`) and renders a scannable QR code in the **Audience Controls** panel — no need to read it off the terminal. If you want it manually, your machine's IP will look like `192.168.1.50`.
 2. **Share the link:**
-   Provide your audience with the following URL (using your actual IP address):
+   Point audience phones at the QR code, or give them the URL directly (using your actual IP address):
    `http://192.168.1.50:3000/audience.html`
-   *Tip: You can use a free QR code generator online to create a QR code of this URL and project it on a screen or print it out!*
+   The dashboard's QR panel can also switch to a "Join Wi-Fi" QR code so phones connect to your network first.
 3. **Network Requirements:**
    For this to work locally without any extra configuration, the audience members must be connected to the **same Wi-Fi network** as the host computer. If you want people on cellular data or outside the venue to connect, you will need to host the project on a public server or use a tool like Ngrok to expose your local server to the public internet.
 
@@ -195,7 +195,7 @@ On the main operator dashboard, you will find an **Audience Controls** panel ben
 - It displays the total number of connected audience phones.
 - It flashes the last action triggered by an audience member.
 - You can **veto/lock** any action. For example, if the tempo is getting too fast, you can check the "Lock energy" box. This will immediately disable the "More energy" button on all audience phones, preventing them from increasing it further.
-- Built-in rate limiting ensures one audience member cannot spam a button (max 1 action per 2 seconds per phone).
+- Built-in rate limiting ensures one audience member cannot spam a button (max 1 action per 5 seconds per phone).
 
 ---
 
@@ -228,7 +228,7 @@ When you're done, go back to the terminal where `npm run dev` is running and pre
 
 ### `npm run dev` shows an error
 - Make sure you've run `npm install` first.
-- Make sure nothing else is using port 5173. If it is, Vite will try the next available port and tell you in the terminal output.
+- Make sure nothing else is using port 3000. If it is, either close the other process or start the server with a different port: `PORT=3001 npm run dev` (macOS/Linux) or `$env:PORT=3001; npm run dev` (Windows PowerShell).
 
 ### The page loads but looks broken
 - Hard-refresh the browser: **Ctrl + Shift + R** (Windows/Linux) or **Cmd + Shift + R** (Mac).
@@ -301,7 +301,10 @@ The full build order (20 features across 6 phases) is documented in `planning no
 
 ### Recent Enhancements
 
-- **Expanded Sample Banks:** Added two switchable tabs in the dashboard for assigning up to 30 samples to MIDI pads. The 16th pad acts as a bank toggle for both the UI and MIDI controllers.
+- **Expanded Sample Banks:** Four switchable pad banks; the 16th pad cycles through them on both the UI and MIDI controllers.
+  - **Banks 1–2:** up to 30 assignable one-shot samples. On startup they're filled automatically with the 30 most recently recorded samples that have been renamed. Samples still carrying a default name like `audience_lead_1789044106422` are skipped as likely failed takes.
+  - **Bank 3:** pads 1–14 play the notes of the current chord (following the progression while music plays), low to high, on a melody instrument. Pad 15 switches to a random melody instrument.
+  - **Bank 4:** the same chord notes, played by pitch-shifting a recorded sample (lower pads slower and deeper, higher pads faster and brighter). Pad 15 cycles through the renamed recorded samples.
 - **Enhanced Audience Controls:** Updated the mobile browser controls to display the assigned sample filename on each pad. Added an info bar to provide feedback on recent actions (e.g., rate limit cooldowns and effect changes).
 - **Improved Regenerate All:** Enhanced the "Regenerate all" and "New Melody/Bass" dashboard buttons to also randomize instruments for each track, chord style, progression length, scale/mode, and note density. Added random recorded sample buttons (🎙️) to the instruments section.
 - **Refined Transpose Controls:** Removed global transpose (whole song up/down) from the dashboard and MIDI mapping. Modified the "Track Pitch" controls to shift up/down by two steps at a time.

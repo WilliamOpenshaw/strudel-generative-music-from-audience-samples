@@ -95,6 +95,30 @@ export function getAllSamples() {
   return items;
 }
 
+/** True for names the recorder gives before a sample is renamed, e.g. "audience_lead_1789044106422". */
+export function isDefaultSampleName(soundKey) {
+  return /^audience_(lead|bass|chord|drum)_\d+$/.test(soundKey);
+}
+
+/**
+ * Renamed samples only, most recently recorded first. Falls back to catalog
+ * order (which is also newest-first per layer) if dates are unavailable.
+ */
+export async function getRenamedSamplesNewestFirst() {
+  const renamed = getAllSamples().filter((s) => !isDefaultSampleName(s.soundKey));
+  let dates = {};
+  try {
+    const res = await fetch('/api/sample-dates');
+    if (res.ok) dates = await res.json();
+  } catch (err) {
+    console.warn('[catalog] Could not load sample dates, using catalog order:', err);
+  }
+  return renamed
+    .map((sample, index) => ({ sample, index, date: dates[sample.filename] ?? 0 }))
+    .sort((a, b) => b.date - a.date || a.index - b.index)
+    .map(({ sample }) => sample);
+}
+
 /**
  * Apply detected sample availability to the global state object.
  */

@@ -1,10 +1,18 @@
-import { initStrudel, evaluate, hush, samples, noteToMidi } from '@strudel/web';
+import { initStrudel, evaluate, hush, samples, noteToMidi, superdough, getAudioContext } from '@strudel/web';
 import { Drawer } from '@strudel/draw';
 import '@strudel/repl'; // registers <strudel-editor> custom element (code display only)
 import QRCode from 'qrcode';
 import { state, setStatus } from './src/state.js';
 import { createArrangement, buildStrudelCode } from './src/patterns/generative.js';
-import { loadCatalog, applyCatalogToState, getAllSamples } from './src/samples/catalog.js';
+import { loadCatalog, applyCatalogToState, getAllSamples, getRenamedSamplesNewestFirst } from './src/samples/catalog.js';
+import {
+  MELODY_PAD_INSTRUMENTS,
+  chordPadNotes,
+  currentChordSymbol,
+  sampleRateForNote,
+  noteName,
+  instrumentLabel,
+} from './src/pads/chordPads.js';
 import { initMIDI } from './src/midi/midi.js';
 import { initSampleEditor, setOnCatalogUpdated } from './src/samples/editor.js';
 import { initSampleRecorder } from './src/samples/recorder.js';
@@ -234,12 +242,22 @@ function updateDebugStatus(message) {
   console.debug('[dashboard] debug:', message);
 }
 
+let strudelInitPromise = null;
+
+// Pads can trigger initialization too, so concurrent callers share one init.
 async function ensureStrudel() {
   if (strudelReady) {
     updateDebugStatus('Strudel already initialized');
     return;
   }
+  strudelInitPromise ??= initStrudelOnce().catch((err) => {
+    strudelInitPromise = null;
+    throw err;
+  });
+  await strudelInitPromise;
+}
 
+async function initStrudelOnce() {
   updateDebugStatus('Initializing Strudel...');
   // initStrudel returns a Promise that resolves to the global repl object.
   // We store it so startPianoRollLoop() can access repl.scheduler.now().
@@ -323,7 +341,7 @@ function handleAction(type, key) {
     if (key === 'chords') regenerate({ regenChords: true, regenMelody: false, regenBass: false, regenDrums: false });
     if (key === 'bass') regenerate({ regenChords: false, regenMelody: false, regenBass: true, regenDrums: false, randomizeBassSettings: true });
     if (key === 'melody') regenerate({ regenChords: false, regenMelody: true, regenBass: false, regenDrums: false, randomizeMelodySettings: true });
-    if (key === 'drums') regenerate({ regenChords: false, regenMelody: false, regenBass: false, regenDrums: true });
+    if (key === 'drums') regenerate({ regenChords: false, regenMelody: false, regenBass: false, regenDrums: true, randomizeDrumsSettings: true });
   } else if (type === 'transport') {
     if (key === 'start') document.getElementById('start-btn')?.click();
     if (key === 'stop') document.getElementById('stop-btn')?.click();
@@ -351,20 +369,14 @@ function handleAction(type, key) {
     const isHalf = type === 'densityHalf';
     const stateKey = `${track}Density`;
     if (state[stateKey]) {
-      state[stateKey] = isHalf ? Math.ceil(state[stateKey] / 2) : state[stateKey] * 2;
+      state[stateKey] = isHalf ? Math.ceil(state[stateKey] / 2) : Math.min(128, state[stateKey] * 2);
       document.getElementById(`${track}-density-display`).innerText = state[stateKey];
       debouncedRestart();
     }
   } else if (type === 'padBank' && key === 'toggle') {
-    state.activePadBank = state.activePadBank === 1 ? 2 : 1;
-    setupPadBank2Selects();
-    updatePerformerTab();
+    triggerPad(16);
   } else if (type === 'padSample') {
-    const padNum = parseInt(key, 10);
-    const sampleKey = state.padBanks[state.activePadBank][padNum];
-    if (sampleKey) {
-      playOneShot(sampleKey);
-    }
+    triggerPad(parseInt(key, 10));
   }
 }
 
@@ -437,6 +449,12 @@ function updateReadouts() {
 }
 
 /* ─── Pattern lifecycle ────────────────────────────── */
+// playPattern evaluates through the <strudel-editor> repl when it exists, so its
+// scheduler (not globalRepl's idle one) holds the real clock and tempo.
+function activeScheduler() {
+  return document.querySelector('strudel-editor')?.editor?.repl?.scheduler || globalRepl?.scheduler;
+}
+
 async function playPattern() {
   const code = buildStrudelCode(state);
   updateDebugStatus('Evaluating play code');
@@ -452,7 +470,7 @@ async function playPattern() {
 
   // Piano roll: if the Drawer is already running, invalidate it so it picks up
   // the new pattern from the scheduler.  Otherwise start a fresh loop.
-  const scheduler = replEl?.editor?.repl?.scheduler || globalRepl?.scheduler;
+  const scheduler = activeScheduler();
   if (pianoRollDrawer && scheduler) {
     pianoRollDrawer.invalidate(scheduler);
   } else {
@@ -489,13 +507,41 @@ async function restartPattern() {
   await playPattern();
 }
 
+// Powers of two so every track's note grid lines up with the others.
+// 128 is allowed manually but too fast to land on at random.
+const RANDOM_DENSITY_CHOICES = [4, 8, 16, 32, 64];
+
+function randomizeDensity(track) {
+  const value = RANDOM_DENSITY_CHOICES[Math.floor(Math.random() * RANDOM_DENSITY_CHOICES.length)];
+  state[`${track}Density`] = value;
+  const display = document.getElementById(`${track}-density-display`);
+  if (display) display.innerText = value;
+}
+
+function applyTimeSignature(value) {
+  const [num, den] = value.split('/').map(Number);
+  state.timeSigNum = num;
+  state.timeSigDen = den;
+  const select = document.getElementById('time-sig-select');
+  if (select) select.value = value;
+  const display = document.getElementById('time-sig-display');
+  if (display) display.innerText = value;
+}
+
 async function regenerate(options) {
   if (options && options.randomizeSettings) {
     // Randomize instruments
     ['lead', 'chord', 'bass', 'drum'].forEach((role) => {
       document.getElementById(`rand-${role}`)?.click();
     });
-    
+
+    // Set directly rather than dispatching 'change': that handler runs its own
+    // regenerate + restart, which would race this one.
+    const timeSigs = Array.from(document.getElementById('time-sig-select')?.options || []).map((o) => o.value);
+    if (timeSigs.length > 0) {
+      applyTimeSignature(timeSigs[Math.floor(Math.random() * timeSigs.length)]);
+    }
+
     // Randomize generative settings
     ['chord-style-select', 'chord-prog-length-select', 'scale-mode-select'].forEach((id) => {
       const select = document.getElementById(id);
@@ -515,37 +561,25 @@ async function regenerate(options) {
       document.getElementById(`${track}-oct-range-${picked}`)?.click();
     });
 
-    // Randomize density for melody, bass, and drums (between 8 and 32)
-    ['melody', 'bass', 'drums'].forEach((track) => {
-      const stateKeys = { melody: 'melodyDensity', bass: 'bassDensity', drums: 'drumsDensity' };
-      const key = stateKeys[track];
-      const randomDensity = Math.floor(Math.random() * (32 - 8 + 1)) + 8;
-      state[key] = randomDensity;
-      const display = document.getElementById(`${track}-density-display`);
-      if (display) display.innerText = randomDensity;
-    });
+    ['melody', 'bass', 'drums'].forEach(randomizeDensity);
   }
 
   if (options && options.randomizeMelodySettings) {
     const ranges = [1, 3, 5];
     const picked = ranges[Math.floor(Math.random() * ranges.length)];
     document.getElementById(`melody-oct-range-${picked}`)?.click();
-    
-    const randomDensity = Math.floor(Math.random() * (32 - 8 + 1)) + 8;
-    state.melodyDensity = randomDensity;
-    const display = document.getElementById(`melody-density-display`);
-    if (display) display.innerText = randomDensity;
+    randomizeDensity('melody');
   }
 
   if (options && options.randomizeBassSettings) {
     const ranges = [1, 3, 5];
     const picked = ranges[Math.floor(Math.random() * ranges.length)];
     document.getElementById(`bass-oct-range-${picked}`)?.click();
-    
-    const randomDensity = Math.floor(Math.random() * (32 - 8 + 1)) + 8;
-    state.bassDensity = randomDensity;
-    const display = document.getElementById(`bass-density-display`);
-    if (display) display.innerText = randomDensity;
+    randomizeDensity('bass');
+  }
+
+  if (options && options.randomizeDrumsSettings) {
+    randomizeDensity('drums');
   }
 
   createArrangement(state, options);
@@ -1009,7 +1043,7 @@ function setupAudienceBridge() {
         regenerate({ regenChords: false, regenMelody: false, regenBass: true, regenDrums: false, randomizeBassSettings: true });
       } else if (action === 'new_drums') {
         showToast(`🥁 Audience: New Drums!`);
-        regenerate({ regenChords: false, regenMelody: false, regenBass: false, regenDrums: true });
+        regenerate({ regenChords: false, regenMelody: false, regenBass: false, regenDrums: true, randomizeDrumsSettings: true });
       } else if (action === 'regen_all') {
         showToast(`🎲 Audience: Regenerate All!`);
         regenerate({ regenChords: true, regenMelody: true, regenBass: true, regenDrums: true, randomizeSettings: true });
@@ -1033,10 +1067,9 @@ function setupAudienceBridge() {
         debouncedRestart();
       } else if (action.startsWith('pad_')) {
         const padNum = parseInt(action.split('_')[1], 10);
-        const sampleKey = state.padBanks[state.activePadBank][padNum];
-        if (sampleKey) {
+        // Bank switching stays with the performers.
+        if (padNum !== 16 && triggerPad(padNum)) {
           showToast(`🎛️ Audience: Played Pad ${padNum}!`);
-          playOneShot(sampleKey);
         }
       }
     },
@@ -1053,93 +1086,237 @@ function setupAudienceBridge() {
   });
 }
 
-/* ─── Pad Bank 2 (One-Shots) ───────────────────────── */
+/* ─── Pad Banks ────────────────────────────────────── */
+// Banks 1-2: assignable one-shot samples. Bank 3: chord notes on a melody
+// instrument. Bank 4: chord notes on a pitch-shifted recorded sample.
+// Pad 16 always switches bank.
+const PAD_BANK_COUNT = 4;
+const BANK_TOGGLE_PAD = 16;
+const NOTE_BANK_CYCLE_PAD = 15;
 const oneShotBuffers = new Map();
 let padBankAudioCtx = null;
 let hasAssignedPadBankDefaults = false;
+let renamedSamples = [];
+let lastRenderedPadChord = null;
 
-async function playOneShot(sampleKey) {
+const PAD_DISPLAY_ORDER = [
+  12, 13, 14, 15, // Row 1 (Top): Pads 13-16
+  8,  9,  10, 11, // Row 2: Pads 9-12
+  4,  5,  6,  7,  // Row 3: Pads 5-8
+  0,  1,  2,  3,  // Row 4 (Bottom): Pads 1-4
+];
+
+const isNoteBank = (bank) => bank === 3 || bank === 4;
+const nextPadBank = (bank) => (bank % PAD_BANK_COUNT) + 1;
+
+async function refreshRenamedSamples() {
+  renamedSamples = await getRenamedSamplesNewestFirst();
+  if (!renamedSamples.some((s) => s.soundKey === state.notePadSample)) {
+    state.notePadSample = renamedSamples[0]?.soundKey || '';
+  }
+}
+
+// Fill banks 1 and 2 once per session with the 30 most recent renamed samples.
+function assignDefaultSampleBanks() {
+  if (hasAssignedPadBankDefaults || renamedSamples.length === 0) return;
+  hasAssignedPadBankDefaults = true;
+  for (let pad = 1; pad <= 15; pad++) {
+    state.padBanks[1][pad] = renamedSamples[pad - 1]?.soundKey || '';
+    state.padBanks[2][pad] = renamedSamples[pad + 14]?.soundKey || '';
+  }
+}
+
+function sampleDisplayName(sampleKey) {
+  return getAllSamples().find((s) => s.soundKey === sampleKey)?.displayName || sampleKey;
+}
+
+// The cycle being heard right now. scheduler.now() tracks the query window,
+// which runs a few hundred ms behind the audio, so invert the Cyclist's
+// targetTime formula instead when its fields are available.
+function audibleCycle(scheduler) {
+  if (!scheduler) return null;
+  const { num_cycles_at_cps_change: cycles0, seconds_at_cps_change: seconds0, latency, cps } = scheduler;
+  if ([cycles0, seconds0, latency, cps].every(Number.isFinite) && scheduler.getTime) {
+    return cycles0 + (scheduler.getTime() - seconds0 - latency) * cps;
+  }
+  return scheduler.now?.() ?? null;
+}
+
+function currentPadChord() {
+  const schedulerCycle = started ? audibleCycle(activeScheduler()) : null;
+  // The arrangement is wrapped in .fast(speed), so pattern time runs at speed × clock time.
+  const cycle = schedulerCycle === null ? null : schedulerCycle * (state.speed || 1);
+  return currentChordSymbol(state, cycle);
+}
+
+function currentPadNotes() {
+  // Follow the chord layer's key, but not its octave shift.
+  const transpose = (state.transpose || 0) + (state.chordsTranspose || 0);
+  return chordPadNotes(currentPadChord(), transpose);
+}
+
+async function getPadAudioContext() {
   if (!padBankAudioCtx) {
     padBankAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
   }
   if (padBankAudioCtx.state === 'suspended') {
     await padBankAudioCtx.resume();
   }
+  return padBankAudioCtx;
+}
 
-  // Find the exact filename (with extension) from catalog
-  const allSamples = getAllSamples();
-  const sampleData = allSamples.find(s => s.soundKey === sampleKey);
+async function loadSampleBuffer(sampleKey) {
+  if (oneShotBuffers.has(sampleKey)) return oneShotBuffers.get(sampleKey);
+
+  const sampleData = getAllSamples().find((s) => s.soundKey === sampleKey);
   if (!sampleData) {
-    console.warn(`[PadBank2] Sample not found in catalog: ${sampleKey}`);
-    return;
+    console.warn(`[PadBank] Sample not found in catalog: ${sampleKey}`);
+    return null;
   }
-
-  const filename = sampleData.filename;
-
-  // Fetch and decode if not cached
-  if (!oneShotBuffers.has(sampleKey)) {
-    try {
-      const res = await fetch(`/samples/${filename}`);
-      if (!res.ok) throw new Error('Not found');
-      const arrayBuffer = await res.arrayBuffer();
-      const audioBuffer = await padBankAudioCtx.decodeAudioData(arrayBuffer);
-      oneShotBuffers.set(sampleKey, audioBuffer);
-    } catch (err) {
-      console.warn(`[PadBank2] Failed to load sample ${filename}:`, err);
-      return;
-    }
+  try {
+    const ctx = await getPadAudioContext();
+    const res = await fetch(`/samples/${sampleData.filename}`);
+    if (!res.ok) throw new Error('Not found');
+    const buffer = await ctx.decodeAudioData(await res.arrayBuffer());
+    oneShotBuffers.set(sampleKey, buffer);
+    return buffer;
+  } catch (err) {
+    console.warn(`[PadBank] Failed to load sample ${sampleData.filename}:`, err);
+    return null;
   }
+}
 
-  const buffer = oneShotBuffers.get(sampleKey);
+async function playOneShot(sampleKey, playbackRate = 1) {
+  const ctx = await getPadAudioContext();
+  const buffer = await loadSampleBuffer(sampleKey);
   if (!buffer) return;
-
-  const source = padBankAudioCtx.createBufferSource();
+  const source = ctx.createBufferSource();
   source.buffer = buffer;
-  source.connect(padBankAudioCtx.destination);
+  source.playbackRate.value = playbackRate;
+  source.connect(ctx.destination);
   source.start();
+}
+
+async function playInstrumentNote(midi) {
+  try {
+    await ensureStrudel();
+    const ctx = getAudioContext();
+    if (ctx.state === 'suspended') await ctx.resume();
+    const gain = 0.8 * (state.gain ?? 1);
+    await superdough({ s: state.notePadInstrument, note: midi, gain }, ctx.currentTime + 0.05, 1);
+  } catch (err) {
+    console.warn(`[PadBank] Failed to play ${state.notePadInstrument}:`, err);
+  }
+}
+
+function cycleNotePadInstrument() {
+  const choices = MELODY_PAD_INSTRUMENTS.filter((name) => name !== state.notePadInstrument);
+  state.notePadInstrument = choices[Math.floor(Math.random() * choices.length)];
+  refreshPadViews();
+}
+
+function cycleNotePadSample() {
+  if (renamedSamples.length === 0) return;
+  const index = renamedSamples.findIndex((s) => s.soundKey === state.notePadSample);
+  state.notePadSample = renamedSamples[(index + 1) % renamedSamples.length].soundKey;
+  loadSampleBuffer(state.notePadSample); // warm the cache so the next hit is instant
+  refreshPadViews();
+}
+
+/** Play or act on a pad in the active bank. Returns false if the pad does nothing. */
+function triggerPad(padNum) {
+  const bank = state.activePadBank;
+
+  if (padNum === BANK_TOGGLE_PAD) {
+    setActivePadBank(nextPadBank(bank));
+    return true;
+  }
+
+  if (isNoteBank(bank)) {
+    if (padNum === NOTE_BANK_CYCLE_PAD) {
+      if (bank === 3) cycleNotePadInstrument();
+      else cycleNotePadSample();
+      return true;
+    }
+    const midi = currentPadNotes()[padNum - 1];
+    if (midi === undefined) return false;
+    if (bank === 3) {
+      playInstrumentNote(midi);
+      return true;
+    }
+    if (!state.notePadSample) return false;
+    playOneShot(state.notePadSample, sampleRateForNote(midi));
+    return true;
+  }
+
+  const sampleKey = state.padBanks[bank][padNum];
+  if (!sampleKey) return false;
+  playOneShot(sampleKey);
+  return true;
+}
+
+function setActivePadBank(bank) {
+  state.activePadBank = bank;
+  refreshPadViews();
+}
+
+function refreshPadViews() {
+  setupPadBank2Selects();
+  updatePerformerTab();
+}
+
+// Note labels follow the playing chord, so redraw when it changes.
+function refreshNotePadsIfChordChanged() {
+  if (!isNoteBank(state.activePadBank)) return;
+  if (currentPadChord() !== lastRenderedPadChord) refreshPadViews();
+}
+
+function padLabel(padNum, notes) {
+  const bank = state.activePadBank;
+  if (padNum === BANK_TOGGLE_PAD) return `Switch to Bank ${nextPadBank(bank)}`;
+  if (isNoteBank(bank)) {
+    if (padNum === NOTE_BANK_CYCLE_PAD) {
+      return bank === 3
+        ? `🎲 ${instrumentLabel(state.notePadInstrument)}`
+        : `🎙️ ${state.notePadSample ? sampleDisplayName(state.notePadSample) : 'No renamed samples'}`;
+    }
+    return noteName(notes[padNum - 1]);
+  }
+  const sampleKey = state.padBanks[bank][padNum];
+  return sampleKey ? sampleDisplayName(sampleKey) : 'Empty';
+}
+
+function padBankTitle(chord) {
+  const bank = state.activePadBank;
+  if (bank === 3) return `Bank 3 · ${chord} notes · ${instrumentLabel(state.notePadInstrument)}`;
+  if (bank === 4) return `Bank 4 · ${chord} notes · ${state.notePadSample ? sampleDisplayName(state.notePadSample) : 'no sample'}`;
+  return `Bank ${bank}`;
 }
 
 function setupPadBank2Selects() {
   const grid = document.getElementById('pad-bank-grid');
   if (!grid) return;
 
-  const allSamples = getAllSamples();
-  
-  grid.innerHTML = '';
-  
-  // Render order to match physical controller (bottom left is Pad 1)
-  const displayOrder = [
-    12, 13, 14, 15, // Row 1 (Top): Pads 13-16
-    8,  9,  10, 11, // Row 2: Pads 9-12
-    4,  5,  6,  7,  // Row 3: Pads 5-8
-    0,  1,  2,  3   // Row 4 (Bottom): Pads 1-4
-  ];
-
-  // Auto-assign defaults sequentially only once for Bank 1
-  if (allSamples.length > 0 && !hasAssignedPadBankDefaults) {
-    hasAssignedPadBankDefaults = true;
-    for (let i = 0; i < 15; i++) {
-      state.padBanks[1][i + 1] = i < allSamples.length ? allSamples[i].soundKey : '';
-    }
-  }
-
   const activeBankNum = state.activePadBank;
-  const currentBank = state.padBanks[activeBankNum];
+  const chord = currentPadChord();
+  const notes = currentPadNotes();
+  lastRenderedPadChord = chord;
+  grid.innerHTML = '';
 
-  for (const i of displayOrder) {
-    const padNum = i + 1; // 1 to 16
-
+  for (const i of PAD_DISPLAY_ORDER) {
+    const padNum = i + 1;
     const item = document.createElement('div');
     item.className = 'pad-bank-item';
-    
-    if (padNum === 16) {
+
+    if (padNum === BANK_TOGGLE_PAD) {
       item.classList.add('pad-bank-toggle');
-      item.innerHTML = `<label>Pad 16 (Toggle)</label><div class="toggle-indicator">Switch to Bank ${activeBankNum === 1 ? 2 : 1}</div>`;
-      item.addEventListener('click', () => {
-        state.activePadBank = activeBankNum === 1 ? 2 : 1;
-        setupPadBank2Selects();
-        updatePerformerTab();
-      });
+      const title = document.createElement('label');
+      title.textContent = 'Pad 16 (Toggle)';
+      const indicator = document.createElement('div');
+      indicator.className = 'toggle-indicator';
+      indicator.textContent = padLabel(padNum, notes);
+      item.append(title, indicator);
+      item.addEventListener('click', () => triggerPad(padNum));
       grid.appendChild(item);
       continue;
     }
@@ -1147,16 +1324,27 @@ function setupPadBank2Selects() {
     const label = document.createElement('label');
     label.innerText = `Pad ${padNum}`;
 
+    if (isNoteBank(activeBankNum)) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = padNum === NOTE_BANK_CYCLE_PAD ? 'pad-bank-note pad-bank-cycle' : 'pad-bank-note';
+      button.textContent = padLabel(padNum, notes);
+      button.addEventListener('click', () => triggerPad(padNum));
+      item.append(label, button);
+      grid.appendChild(item);
+      continue;
+    }
+
+    const currentBank = state.padBanks[activeBankNum];
     const select = document.createElement('select');
     select.dataset.pad = padNum;
-    
-    // Populate options
+
     const emptyOpt = document.createElement('option');
     emptyOpt.value = '';
     emptyOpt.text = 'Empty';
     select.appendChild(emptyOpt);
 
-    allSamples.forEach((sample) => {
+    getAllSamples().forEach((sample) => {
       const opt = document.createElement('option');
       opt.value = sample.soundKey;
       opt.text = sample.displayName;
@@ -1171,31 +1359,25 @@ function setupPadBank2Selects() {
       updatePerformerTab();
     });
 
-    item.appendChild(label);
-    item.appendChild(select);
+    item.append(label, select);
     grid.appendChild(item);
   }
-  
-  // Highlight the active bank toggle button in UI if it exists
-  const bank1Btn = document.getElementById('bank-toggle-1');
-  const bank2Btn = document.getElementById('bank-toggle-2');
-  if (bank1Btn && bank2Btn) {
-    if (activeBankNum === 1) {
-      bank1Btn.classList.add('active');
-      bank2Btn.classList.remove('active');
-    } else {
-      bank2Btn.classList.add('active');
-      bank1Btn.classList.remove('active');
-    }
+
+  for (let bank = 1; bank <= PAD_BANK_COUNT; bank++) {
+    document.getElementById(`bank-toggle-${bank}`)?.classList.toggle('active', bank === activeBankNum);
   }
+
+  const heading = document.getElementById('pad-bank-heading');
+  if (heading) heading.textContent = padBankTitle(chord);
 
   updatePadBank2SelectsUI();
 }
 
 function updatePadBank2SelectsUI() {
+  if (isNoteBank(state.activePadBank)) return;
   const selects = document.querySelectorAll('#pad-bank-grid select');
   const currentBank = state.padBanks[state.activePadBank];
-  
+
   const assigned = new Set();
   for (const pad in currentBank) {
     if (currentBank[pad]) {
@@ -1209,30 +1391,18 @@ function updatePadBank2SelectsUI() {
 
     Array.from(select.options).forEach((opt) => {
       if (opt.value === '') return;
-      if (opt.value !== myValue && assigned.has(opt.value)) {
-        opt.disabled = true;
-      } else {
-        opt.disabled = false;
-      }
+      opt.disabled = opt.value !== myValue && assigned.has(opt.value);
     });
   });
 }
 
 export function broadcastPadSync() {
   if (!operatorWsClient) return;
-  const currentBank = state.padBanks[state.activePadBank];
-  const allSamples = getAllSamples();
+  const notes = currentPadNotes();
   const padLabels = {};
-  for (let i = 1; i <= 15; i++) {
-    const sampleKey = currentBank[i];
-    if (sampleKey) {
-      const sample = allSamples.find(s => s.soundKey === sampleKey);
-      padLabels[`pad_${i}`] = sample ? sample.displayName : 'Empty';
-    } else {
-      padLabels[`pad_${i}`] = 'Empty';
-    }
+  for (let pad = 1; pad <= 16; pad++) {
+    padLabels[`pad_${pad}`] = padLabel(pad, notes);
   }
-  padLabels[`pad_16`] = `Bank ${state.activePadBank === 1 ? 2 : 1} Toggle`;
   operatorWsClient.syncPads(padLabels);
 }
 
@@ -1241,48 +1411,39 @@ export function updatePerformerTab() {
   const grid = document.getElementById('performer-pad-grid');
   const bankTitle = document.getElementById('performer-bank-title');
   if (!grid) return;
-  
+
   const activeBankNum = state.activePadBank;
-  const currentBank = state.padBanks[activeBankNum];
-  const allSamples = getAllSamples();
-  
+  const chord = currentPadChord();
+  const notes = currentPadNotes();
+  lastRenderedPadChord = chord;
+
   if (bankTitle) {
-    bankTitle.innerText = `Bank ${activeBankNum}`;
+    bankTitle.innerText = padBankTitle(chord);
   }
 
-  // Render order to match physical controller
-  const displayOrder = [
-    12, 13, 14, 15, // Row 1 (Top)
-    8,  9,  10, 11, // Row 2
-    4,  5,  6,  7,  // Row 3
-    0,  1,  2,  3   // Row 4 (Bottom)
-  ];
-
   grid.innerHTML = '';
-  
-  for (const i of displayOrder) {
+
+  for (const i of PAD_DISPLAY_ORDER) {
     const padNum = i + 1;
     const item = document.createElement('div');
-    
-    if (padNum === 16) {
-      item.className = 'performer-pad toggle-pad';
-      item.innerHTML = `<div class="pad-num">16</div><div class="pad-name">Switch to Bank ${activeBankNum === 1 ? 2 : 1}</div>`;
-      item.addEventListener('click', () => {
-        state.activePadBank = activeBankNum === 1 ? 2 : 1;
-        setupPadBank2Selects();
-        updatePerformerTab();
-      });
-    } else {
-      item.className = 'performer-pad';
-      const sampleKey = currentBank[padNum];
-      let displayName = 'Empty';
-      if (sampleKey) {
-        const sample = allSamples.find(s => s.soundKey === sampleKey);
-        if (sample) displayName = sample.displayName;
-        item.classList.add('assigned');
-      }
-      item.innerHTML = `<div class="pad-num">${padNum}</div><div class="pad-name">${displayName}</div>`;
+    item.className = 'performer-pad';
+
+    if (padNum === BANK_TOGGLE_PAD) {
+      item.classList.add('toggle-pad');
+    } else if (isNoteBank(activeBankNum)) {
+      item.classList.add(padNum === NOTE_BANK_CYCLE_PAD ? 'cycle-pad' : 'note-pad');
+    } else if (state.padBanks[activeBankNum][padNum]) {
+      item.classList.add('assigned');
     }
+
+    const num = document.createElement('div');
+    num.className = 'pad-num';
+    num.textContent = padNum;
+    const name = document.createElement('div');
+    name.className = 'pad-name';
+    name.textContent = padLabel(padNum, notes);
+    item.append(num, name);
+    item.addEventListener('click', () => triggerPad(padNum));
     grid.appendChild(item);
   }
 }
@@ -1628,8 +1789,10 @@ document.addEventListener('DOMContentLoaded', () => {
   initSampleRecorder();
   
   // Pre-load catalog so dropdowns aren't empty initially
-  loadCatalog(true).then(() => {
+  loadCatalog(true).then(async () => {
     setupInstrumentSelects();
+    await refreshRenamedSamples();
+    assignDefaultSampleBanks();
     setupPadBank2Selects();
     updatePerformerTab();
     updateReadouts();
@@ -1661,8 +1824,10 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         });
       }
+      if (state.notePadSample === oldName) state.notePadSample = newName;
     }
 
+    await refreshRenamedSamples();
     setupInstrumentSelects();
     setupPadBank2Selects();
     updatePerformerTab();
@@ -1670,26 +1835,21 @@ document.addEventListener('DOMContentLoaded', () => {
     debouncedRestart();
   });
 
-  // Bind Pad Bank 2 toggles
-  document.getElementById('bank-toggle-1')?.addEventListener('click', () => {
-    state.activePadBank = 1;
-    setupPadBank2Selects();
-    updatePerformerTab();
-  });
-  document.getElementById('bank-toggle-2')?.addEventListener('click', () => {
-    state.activePadBank = 2;
-    setupPadBank2Selects();
-    updatePerformerTab();
-  });
+  for (let bank = 1; bank <= PAD_BANK_COUNT; bank++) {
+    document.getElementById(`bank-toggle-${bank}`)?.addEventListener('click', () => setActivePadBank(bank));
+  }
+  setInterval(refreshNotePadsIfChordChanged, 100);
 
   // Initialize MIDI
   initMIDI({
     getState: (key) => state[key],
     onParameterChange: updateParameter,
     onAction: handleAction,
-    onStatusUpdate: (text) => {
+    onStatusUpdate: (text, deviceNames = '') => {
       const el = document.getElementById('midi-status-display');
-      if (el) el.innerText = text;
+      if (!el) return;
+      el.innerText = text;
+      el.title = deviceNames;
     },
     onRawMessage: (msg) => {
       const el = document.getElementById('midi-last-cmd-display');
@@ -1824,14 +1984,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── Time signature select ─────────────────────────
   const timeSigSelect = document.getElementById('time-sig-select');
-  const timeSigDisplay = document.getElementById('time-sig-display');
   if (timeSigSelect) {
     timeSigSelect.addEventListener('change', async (e) => {
-      const [num, den] = e.target.value.split('/').map(Number);
-      state.timeSigNum = num;
-      state.timeSigDen = den;
-      if (timeSigDisplay) timeSigDisplay.innerText = `${num}/${den}`;
-      console.info(`[dashboard] Time signature changed to ${num}/${den}`);
+      applyTimeSignature(e.target.value);
+      console.info(`[dashboard] Time signature changed to ${e.target.value}`);
       // Regenerate all patterns so note counts work with the new feel,
       // then restart playback with the new .slow() values.
       await regenerate({ regenChords: true, regenMelody: true, regenBass: true });
@@ -1852,7 +2008,7 @@ document.addEventListener('DOMContentLoaded', () => {
     regenerate({ regenChords: false, regenMelody: false, regenBass: true, regenDrums: false, randomizeBassSettings: true }),
   );
   document.getElementById('regen-drums')?.addEventListener('click', () =>
-    regenerate({ regenChords: false, regenMelody: false, regenBass: false, regenDrums: true }),
+    regenerate({ regenChords: false, regenMelody: false, regenBass: false, regenDrums: true, randomizeDrumsSettings: true }),
   );
 
   // ── Note Density controls ──────────────────────────
@@ -1887,17 +2043,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
   bindDensityControls({
     track: 'melody', stateKey: 'melodyDensity', displayId: 'melody-density-display',
-    minVal: 1, maxVal: 64,
+    minVal: 1, maxVal: 128,
     regenOpts: { regenChords: false, regenMelody: true, regenBass: false, regenDrums: false },
   });
   bindDensityControls({
     track: 'bass', stateKey: 'bassDensity', displayId: 'bass-density-display',
-    minVal: 1, maxVal: 32,
+    minVal: 1, maxVal: 128,
     regenOpts: { regenChords: false, regenMelody: false, regenBass: true, regenDrums: false },
   });
   bindDensityControls({
     track: 'drums', stateKey: 'drumsDensity', displayId: 'drums-density-display',
-    minVal: 1, maxVal: 64,
+    minVal: 1, maxVal: 128,
     regenOpts: { regenChords: false, regenMelody: false, regenBass: false, regenDrums: true },
   });
 
