@@ -7,6 +7,7 @@
 
 import { refreshSampleList, selectFile } from './editor.js';
 import { loadCatalog, applyCatalogToState } from './catalog.js';
+import { registerAudienceSamples } from './register.js';
 import { state } from '../state.js';
 
 let mediaRecorder = null;
@@ -136,8 +137,7 @@ export function initSampleRecorder() {
               applyCatalogToState(state);
 
               try {
-                const { samples } = await import('@strudel/web');
-                await samples(`${window.location.origin}/strudel.json`);
+                await registerAudienceSamples();
               } catch (e) {
                 console.warn('[recorder] Strudel refresh warning:', e);
               }

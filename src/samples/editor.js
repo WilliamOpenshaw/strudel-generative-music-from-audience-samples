@@ -1,5 +1,6 @@
 import { getAudioContext } from '@strudel/web';
 import { detectPitch, pitchShiftBuffer } from './pitch.js';
+import { registerAudienceSamples } from './register.js';
 
 let audioCtx;
 let originalBuffer = null;
@@ -160,8 +161,7 @@ async function renameSample() {
 
       // Refresh Strudel
       try {
-        const { samples } = await import('@strudel/web');
-        await samples(`${window.location.origin}/strudel.json`);
+        await registerAudienceSamples();
       } catch (e) {
         console.warn('[editor] Strudel refresh warning:', e);
       }
@@ -642,8 +642,7 @@ async function saveSample() {
         btnSave.textContent = 'Saved & Tuned!';
         // Update Strudel
         try {
-          const { samples } = await import('@strudel/web');
-          await samples(`${window.location.origin}/strudel.json`);
+          await registerAudienceSamples();
         } catch (e) {
           console.warn('[editor] Strudel refresh warning:', e);
         }

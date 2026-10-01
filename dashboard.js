@@ -5,6 +5,7 @@ import QRCode from 'qrcode';
 import { state, setStatus } from './src/state.js';
 import { createArrangement, buildStrudelCode } from './src/patterns/generative.js';
 import { loadCatalog, applyCatalogToState, getAllSamples, getRenamedSamplesNewestFirst } from './src/samples/catalog.js';
+import { captureEditorSampleLoader, registerAudienceSamples } from './src/samples/register.js';
 import {
   MELODY_PAD_INSTRUMENTS,
   chordPadNotes,
@@ -259,6 +260,8 @@ async function ensureStrudel() {
 
 async function initStrudelOnce() {
   updateDebugStatus('Initializing Strudel...');
+  // Must run before initStrudel(), which replaces the editor's global samples().
+  await captureEditorSampleLoader();
   // initStrudel returns a Promise that resolves to the global repl object.
   // We store it so startPianoRollLoop() can access repl.scheduler.now().
   globalRepl = await initStrudel({
@@ -286,7 +289,7 @@ async function initStrudelOnce() {
       if (availability.lead || availability.bass || availability.chord || availability.drum) {
         try {
           updateDebugStatus('Loading local audience samples');
-          await samples(`${window.location.origin}/strudel.json`);
+          await registerAudienceSamples();
         } catch (err) {
           console.warn('[dashboard] Failed to load local samples:', err);
           updateDebugStatus('Failed to load local audience samples');
