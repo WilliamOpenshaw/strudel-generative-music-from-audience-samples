@@ -320,9 +320,13 @@ const server = createHttpServer(app);
 // ─── WebSocket server ─────────────────────────────────
 const wss = new WebSocketServer({ noServer: true });
 
-/** Connected clients, tagged by role. */
+/** Connected clients, tagged by role. Displays are read-only pad screens (pads.html). */
 const operators = new Set();
 const audiences = new Set();
+const displays = new Set();
+
+/** Latest pad layout from the operator, replayed to clients that connect later. */
+let lastPadSync = null;
 
 /** Actions currently locked by the operator. */
 const lockedActions = new Set();
@@ -371,10 +375,15 @@ wss.on('connection', (ws) => {
     operators.add(ws);
     sendAudienceCount();
     console.log(`[ws] Operator connected (total operators: ${operators.size})`);
+  } else if (role === 'display') {
+    displays.add(ws);
+    if (lastPadSync) ws.send(JSON.stringify(lastPadSync));
+    console.log(`[ws] Pad display connected (total displays: ${displays.size})`);
   } else {
     audiences.add(ws);
     sendAudienceCount();
     sendLockState(ws); // tell this audience client what's locked
+    if (lastPadSync) ws.send(JSON.stringify(lastPadSync));
     console.log(`[ws] Audience connected (total audience: ${audiences.size})`);
   }
 
@@ -417,15 +426,23 @@ wss.on('connection', (ws) => {
     }
 
     if (role === 'operator' && msg.type === MSG.SYNC_PADS) {
-      broadcast(audiences, { type: MSG.SYNC_PADS, padLabels: msg.padLabels });
+      lastPadSync = {
+        type: MSG.SYNC_PADS,
+        padLabels: msg.padLabels,
+        padKinds: msg.padKinds,
+        bankTitle: msg.bankTitle,
+      };
+      broadcast(audiences, lastPadSync);
+      broadcast(displays, lastPadSync);
     }
   });
 
   ws.on('close', () => {
     operators.delete(ws);
     audiences.delete(ws);
+    displays.delete(ws);
     sendAudienceCount();
-    console.log(`[ws] ${role} disconnected (operators: ${operators.size}, audience: ${audiences.size})`);
+    console.log(`[ws] ${role} disconnected (operators: ${operators.size}, audience: ${audiences.size}, displays: ${displays.size})`);
   });
 });
 
