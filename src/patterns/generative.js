@@ -343,8 +343,11 @@ export function buildStrudelCode(state) {
     );
   }
 
+  // No trailing .play(): evaluate() already autoplays the returned pattern, and
+  // @strudel/web's Pattern.prototype.play would also start it on the global repl
+  // (which never gets setcpm) — a second, slower "ghost" copy of the arrangement.
   if (parts.length === 0) {
-    return 'silence.play()';
+    return 'silence';
   }
 
   return `
@@ -352,7 +355,7 @@ setcpm(${state.cpm});
 stack(
   ${parts.join(',\n  ')}
 
-).fast(${state.speed.toFixed(2)}).play()
+).fast(${state.speed.toFixed(2)})
 `.trim();
 }
 
