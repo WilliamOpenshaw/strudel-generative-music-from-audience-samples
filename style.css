@@ -784,76 +784,6 @@ section > div[id$='-display'] {
   border-color: rgba(255, 207, 107, 0.15);
 }
 
-.audience-info {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.audience-badge {
-  display: inline-block;
-  font-size: 0.8rem;
-  font-weight: 500;
-  padding: 0.25rem 0.7rem;
-  border-radius: 100px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-secondary);
-  transition: background var(--transition-default), color var(--transition-default),
-    border-color var(--transition-default);
-}
-
-.audience-badge.flash {
-  background: rgba(165, 107, 255, 0.15);
-  border-color: rgba(165, 107, 255, 0.4);
-  color: #c89eff;
-}
-
-.audience-locks {
-  display: flex;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-  width: 100%;
-}
-
-.lock-toggle {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-  cursor: pointer;
-  user-select: none;
-}
-
-.lock-toggle input[type='checkbox'] {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 16px;
-  height: 16px;
-  border: 1.5px solid var(--border-subtle);
-  border-radius: 4px;
-  background: var(--bg-elevated);
-  cursor: pointer;
-  transition: background var(--transition-fast), border-color var(--transition-fast);
-  position: relative;
-  flex-shrink: 0;
-}
-
-.lock-toggle input[type='checkbox']:checked {
-  background: rgba(242, 92, 92, 0.2);
-  border-color: rgba(242, 92, 92, 0.5);
-}
-
-.lock-toggle input[type='checkbox']:checked::after {
-  content: '🔒';
-  position: absolute;
-  top: -1px;
-  left: 1px;
-  font-size: 10px;
-  line-height: 1;
-}
-
 /* ─── Responsive ───────────────────────────────────── */
 @media (max-width: 520px) {
   body {
@@ -1185,6 +1115,14 @@ section > div[id$='-display'] {
   border-color: rgba(245, 166, 35, 0.3);
 }
 
+/* Far left, away from Save, so it isn't hit by accident. */
+#editor-delete-btn {
+  order: -1;
+  margin-right: auto;
+  color: var(--danger);
+  border-color: rgba(242, 92, 92, 0.35);
+}
+
 #editor-preview-btn:hover:not(:disabled) {
   background: rgba(245, 166, 35, 0.1);
 }
@@ -1472,40 +1410,67 @@ section > div[id$='-display'] {
   margin-left: auto;
 }
 
-.audience-action-locks {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-  gap: 0.5rem;
+.audience-access-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
   width: 100%;
 }
 
-.lock-btn {
+/* A checkbox drawn as an on/off switch: green = phones can use these controls. */
+.access-toggle {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0.35rem 0.6rem;
-  font-size: 0.78rem;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
+  gap: 0.5rem;
+  font-size: 0.85rem;
   color: var(--text-primary);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  user-select: none;
 }
 
-.lock-btn:hover {
-  border-color: var(--border-hover);
+.access-toggle input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  width: 34px;
+  height: 18px;
+  margin: 0;
+  border-radius: 999px;
+  background: rgba(242, 92, 92, 0.35);
+  border: 1px solid rgba(242, 92, 92, 0.6);
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+  flex-shrink: 0;
 }
 
-.lock-btn.locked {
-  background: rgba(239, 68, 68, 0.15);
-  border-color: var(--danger, #ef4444);
-  color: var(--danger, #ef4444);
+.access-toggle input[type='checkbox']::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform var(--transition-fast);
 }
 
-.lock-icon {
-  font-size: 0.85rem;
-  margin-left: 0.3rem;
+.access-toggle input[type='checkbox']:checked {
+  background: rgba(61, 214, 140, 0.4);
+  border-color: rgba(61, 214, 140, 0.7);
+}
+
+.access-toggle input[type='checkbox']:checked::after {
+  transform: translateX(16px);
+}
+
+.access-toggle.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.access-toggle input[type='checkbox']:disabled {
+  cursor: not-allowed;
 }
 
 .audience-activity-toast {
@@ -1662,6 +1627,67 @@ section > div[id$='-display'] {
   word-wrap: break-word !important;
   overflow-wrap: break-word !important;
   display: inline-block;
+}
+
+/* ─── Pad bank choices (on/off + select) ───────────── */
+.bank-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.bank-choice {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.45rem 0.15rem 0.35rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  transition: border-color var(--transition-fast), background var(--transition-fast), opacity var(--transition-fast);
+}
+
+.bank-choice input[type='checkbox'] {
+  accent-color: var(--accent);
+  cursor: pointer;
+  margin: 0;
+}
+
+.bank-choice input[type='checkbox']:disabled {
+  cursor: not-allowed;
+}
+
+.bank-select-btn {
+  background: none;
+  border: none;
+  padding: 0.15rem 0.1rem;
+  font: inherit;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.bank-select-btn:hover:not(:disabled) {
+  color: var(--text-primary);
+}
+
+.bank-choice.active {
+  border-color: var(--accent);
+  background: rgba(108, 140, 255, 0.15);
+}
+
+.bank-choice.active .bank-select-btn {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.bank-choice.off {
+  opacity: 0.5;
+}
+
+.bank-choice.off .bank-select-btn {
+  text-decoration: line-through;
+  cursor: not-allowed;
 }
 
 /* ─── Pad Bank 2 Grid ──────────────────────────────── */
@@ -2364,8 +2390,35 @@ section > div[id$='-display'] {
   gap: 1rem;
   width: 100%;
   max-width: 1200px;
-  margin: 2rem auto;
+  margin: 0 auto; /* the surrounding container's gap already spaces it from the header */
   padding: 0 1rem;
+}
+
+/* Compact one-row header (badge · title · bank) for the pad views, leaving room for the pads. */
+.portal-header.compact {
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 1.25rem;
+}
+
+.portal-header.compact .portal-title-block {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.9rem;
+  min-width: 0;
+}
+
+.portal-header.compact .portal-pill-badge,
+.portal-header.compact .portal-main-heading,
+.portal-header.compact .pad-display-title {
+  margin: 0;
+}
+
+.portal-header.compact .portal-main-heading,
+.portal-header.compact .pad-display-title {
+  font-size: 1.25rem;
+  line-height: 1.3;
 }
 
 .performer-pad {
@@ -2400,6 +2453,53 @@ section > div[id$='-display'] {
   background: rgba(108, 140, 255, 0.05);
   border: 1px dashed var(--accent);
   cursor: pointer;
+}
+
+/* ─── Pad Display window (pads.html) ─────────────── */
+/* Fills its window exactly, whatever the screen: header on top, the 4×4 pads
+   share the rest. No scrolling or resizing needed when moving it to another display. */
+.pad-display-page {
+  height: 100vh;
+  padding: 0.75rem;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.pad-display {
+  height: 100%;
+  gap: 0.75rem;
+}
+
+.pad-display .performer-pad-grid {
+  flex: 1;
+  min-height: 0;
+  max-width: none;
+  padding: 0;
+  gap: 0.75rem;
+  grid-template-rows: repeat(4, minmax(0, 1fr));
+}
+
+.pad-display .performer-pad {
+  min-height: 0;
+  padding: 0.5rem;
+  overflow: hidden;
+  cursor: default;
+}
+
+.pad-display-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.pad-display-status {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.pad-display-status.live {
+  color: #4ade80;
 }
 
 .performer-pad.toggle-pad {
@@ -2449,4 +2549,150 @@ section > div[id$='-display'] {
   font-weight: 600;
   color: #ff6464;
   text-align: center;
+}
+
+/* ─── Host Messages page (host.html) ─────────────── */
+.host {
+  max-width: 1200px;
+  margin: 0 auto;
+  gap: 1rem;
+}
+
+.host-status,
+.host-midi-status {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.host-status.ready { color: #4ade80; }
+.host-status.playing { color: var(--accent); }
+.host-status.loading { color: var(--warning, #f5a623); }
+.host-status.error { color: var(--danger); }
+
+.host-start-btn {
+  font-size: 1rem;
+  font-weight: 700;
+  padding: 0.55rem 1.4rem;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(61, 214, 140, 0.6);
+  background: rgba(61, 214, 140, 0.15);
+  color: #4ade80;
+  cursor: pointer;
+}
+
+.host-start-btn.running {
+  border-color: rgba(242, 92, 92, 0.6);
+  background: rgba(242, 92, 92, 0.15);
+  color: var(--danger);
+}
+
+.host-now-next {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 1rem;
+}
+
+.host-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.25rem;
+  min-width: 0;
+}
+
+.host-now.playing {
+  border-color: var(--accent);
+  background: rgba(108, 140, 255, 0.12);
+}
+
+.host-card-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.host-card-number {
+  font-size: 4rem;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--text-primary);
+}
+
+.host-next .host-card-number {
+  font-size: 3rem;
+  color: var(--text-secondary);
+}
+
+.host-card-name {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.host-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.host-controls button small {
+  opacity: 0.6;
+  font-weight: 400;
+}
+
+.host-volume {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.host-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.host-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.host-list-item {
+  display: grid;
+  grid-template-columns: 3.5rem 1fr auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  cursor: pointer;
+}
+
+.host-list-item:hover { border-color: var(--border-hover, var(--accent)); }
+.host-list-item.playing { border-color: var(--accent); background: rgba(108, 140, 255, 0.15); }
+.host-list-item.next { border-style: dashed; border-color: #4ade80; }
+.host-list-item.broken { opacity: 0.55; }
+
+.host-list-number { font-weight: 700; color: var(--text-secondary); }
+.host-list-name { overflow-wrap: anywhere; }
+.host-list-tag { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); }
+.host-list-item.playing .host-list-tag { color: var(--accent); }
+.host-list-item.next .host-list-tag { color: #4ade80; }
+
+@media (max-width: 700px) {
+  .host-now-next { grid-template-columns: 1fr; }
+  .host-card-number { font-size: 3rem; }
 }

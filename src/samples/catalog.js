@@ -3,11 +3,17 @@
  * files are available by fetching /strudel.json.
  */
 
-export const sampleAvailability = {
-  lead: false,
-  bass: false,
-  chord: false,
-  drum: false,
+import { SAMPLE_LAYERS, SAMPLE_LAYER_KEYS } from './layers.js';
+
+/** Per recording layer (e.g. `audience_lines`): does it have any files? */
+export const sampleAvailability = Object.fromEntries(SAMPLE_LAYER_KEYS.map((key) => [key, false]));
+
+/** Instruments each track falls back to when it has no (or a deleted) recording. */
+export const DEFAULT_INSTRUMENTS = {
+  lead: 'triangle',
+  bass: 'sawtooth',
+  chord: 'sawtooth',
+  drum: 'RolandTR909',
 };
 
 /** Raw catalog data (populated after loadCatalog). */
@@ -30,11 +36,9 @@ export async function loadCatalog(force = false) {
 
     catalogData = await res.json();
 
-    // Check each role for non-empty file arrays
-    sampleAvailability.lead = hasFiles(catalogData, 'audience_lead');
-    sampleAvailability.bass = hasFiles(catalogData, 'audience_bass');
-    sampleAvailability.chord = hasFiles(catalogData, 'audience_chord');
-    sampleAvailability.drum = hasFiles(catalogData, 'audience_drum');
+    for (const key of SAMPLE_LAYER_KEYS) {
+      sampleAvailability[key] = hasFiles(catalogData, key);
+    }
 
     console.info('[catalog] Sample availability:', { ...sampleAvailability });
   } catch (err) {
@@ -66,14 +70,7 @@ export function getAllSamples() {
   const items = [];
   const seenFiles = new Set();
 
-  const layerMap = {
-    audience_lead: 'Lead',
-    audience_bass: 'Bass',
-    audience_chord: 'Chords',
-    audience_drum: 'Drums',
-  };
-
-  for (const [layerKey, layerLabel] of Object.entries(layerMap)) {
+  for (const [layerKey, layerLabel] of Object.entries(SAMPLE_LAYERS)) {
     const files = catalogData[layerKey];
     if (Array.isArray(files)) {
       files.forEach((filename) => {
@@ -95,9 +92,11 @@ export function getAllSamples() {
   return items;
 }
 
+const DEFAULT_NAME_PATTERN = new RegExp(`^(${SAMPLE_LAYER_KEYS.join('|')})_\\d+$`);
+
 /** True for names the recorder gives before a sample is renamed, e.g. "audience_lead_1789044106422". */
 export function isDefaultSampleName(soundKey) {
-  return /^audience_(lead|bass|chord|drum)_\d+$/.test(soundKey);
+  return DEFAULT_NAME_PATTERN.test(soundKey);
 }
 
 /**
@@ -124,11 +123,6 @@ export async function getRenamedSamplesNewestFirst() {
  */
 export function applyCatalogToState(state) {
   if (!state.sampleBanks) {
-    state.sampleBanks = {
-      lead: 'triangle',
-      bass: 'sawtooth',
-      chord: 'sawtooth',
-      drum: 'RolandTR909',
-    };
+    state.sampleBanks = { ...DEFAULT_INSTRUMENTS };
   }
 }

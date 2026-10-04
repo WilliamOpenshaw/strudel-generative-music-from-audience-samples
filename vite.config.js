@@ -16,6 +16,8 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
         audience: resolve(__dirname, 'audience.html'),
+        pads: resolve(__dirname, 'pads.html'),
+        host: resolve(__dirname, 'host.html'),
       },
     },
   },

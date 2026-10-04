@@ -1,6 +1,7 @@
 import { getAudioContext } from '@strudel/web';
 import { detectPitch, pitchShiftBuffer } from './pitch.js';
 import { registerAudienceSamples } from './register.js';
+import { SAMPLE_LAYER_KEYS } from './layers.js';
 
 let audioCtx;
 let originalBuffer = null;
@@ -12,7 +13,7 @@ let pitchAnalysisTimeout = null;
 // UI Elements
 let canvas, ctx;
 let btnPrev, btnNext, selectSample;
-let btnPreview, btnSave;
+let btnPreview, btnSave, btnDelete;
 let playheadEl;
 let inputRename, btnRename;
 
@@ -24,9 +25,15 @@ let catalogData = {};
 let availableSamples = [];
 let currentIndex = -1;
 let onCatalogUpdatedCallback = null;
+let onSampleDeletedCallback = null;
 
 export function setOnCatalogUpdated(fn) {
   onCatalogUpdatedCallback = fn;
+}
+
+/** Called with the deleted sample's sound key (filename without extension). */
+export function setOnSampleDeleted(fn) {
+  onSampleDeletedCallback = fn;
 }
 
 function getSliders() {
@@ -57,6 +64,7 @@ export async function initSampleEditor() {
   selectSample = document.getElementById('editor-sample-select');
   btnPreview = document.getElementById('editor-preview-btn');
   btnSave = document.getElementById('editor-save-btn');
+  btnDelete = document.getElementById('editor-delete-btn');
   playheadEl = document.getElementById('editor-playhead');
   inputRename = document.getElementById('editor-rename-input');
   btnRename = document.getElementById('editor-rename-btn');
@@ -83,6 +91,7 @@ export async function initSampleEditor() {
 
   btnPreview?.addEventListener('click', togglePreview);
   btnSave?.addEventListener('click', saveSample);
+  btnDelete?.addEventListener('click', deleteSample);
   btnRename?.addEventListener('click', renameSample);
   inputRename?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
@@ -142,6 +151,17 @@ async function renameSample() {
   const newName = inputRename.value.trim();
   if (!newName) return;
 
+  // Captured up front: selecting the renamed file below changes currentSampleName.
+  const oldFilename = currentSampleName;
+  const position = currentIndex;
+  const resetButton = (label) => {
+    btnRename.textContent = label;
+    setTimeout(() => {
+      btnRename.textContent = '✏️ Rename';
+      btnRename.disabled = false;
+    }, 1500);
+  };
+
   btnRename.disabled = true;
   btnRename.textContent = 'Renaming...';
 
@@ -149,58 +169,105 @@ async function renameSample() {
     const res = await fetch('/rename-sample', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        oldFilename: currentSampleName,
-        newName,
-      }),
+      body: JSON.stringify({ oldFilename, newName }),
     });
 
-    if (res.ok) {
-      const data = await res.json();
-      btnRename.textContent = 'Renamed!';
-
-      // Refresh Strudel
-      try {
-        await registerAudienceSamples();
-      } catch (e) {
-        console.warn('[editor] Strudel refresh warning:', e);
-      }
-
-      await refreshSampleList();
-      await selectFile(data.newFilename);
-
-      if (onCatalogUpdatedCallback) {
-        const oldName = currentSampleName.replace(/\.[^.]+$/, '');
-        const newSoundKey = data.newFilename.replace(/\.[^.]+$/, '');
-        onCatalogUpdatedCallback(oldName, newSoundKey);
-      }
-
-      setTimeout(() => {
-        btnRename.textContent = '✏️ Rename';
-        btnRename.disabled = false;
-      }, 1500);
-    } else {
-      throw new Error(`Server returned ${res.status}`);
+    if (isOutdatedServer(res)) {
+      window.alert(RESTART_SERVER_MESSAGE);
+      resetButton('✏️ Rename');
+      return;
     }
+    if (res.status === 409) {
+      resetButton('Name taken!');
+      return;
+    }
+    if (!res.ok) throw new Error(`Server returned ${res.status}`);
+
+    const data = await res.json();
+    btnRename.textContent = 'Renamed!';
+
+    // Refresh Strudel
+    try {
+      await registerAudienceSamples();
+    } catch (e) {
+      console.warn('[editor] Strudel refresh warning:', e);
+    }
+
+    // A rename keeps the file's place in the list, so stay there rather than jumping to the first sample.
+    await refreshSampleList(position);
+    if (currentSampleName !== data.newFilename) await selectFile(data.newFilename);
+
+    onCatalogUpdatedCallback?.(oldFilename.replace(/\.[^.]+$/, ''), data.newFilename.replace(/\.[^.]+$/, ''));
+    resetButton('Renamed!');
   } catch (err) {
     console.error('[editor] Rename failed:', err);
-    btnRename.textContent = 'Error!';
-    setTimeout(() => {
-      btnRename.textContent = '✏️ Rename';
-      btnRename.disabled = false;
-    }, 1500);
+    resetButton('Error!');
   }
 }
 
 
-export async function refreshSampleList() {
+// A plain 404 page (not our JSON error) means the endpoint itself is missing:
+// the running server predates this page and needs a restart.
+function isOutdatedServer(res) {
+  return res.status === 404 && !(res.headers.get('content-type') || '').includes('application/json');
+}
+
+const RESTART_SERVER_MESSAGE =
+  "The running server is older than this page and doesn't support this yet.\n\n" +
+  'Restart it (Ctrl+C in its terminal, then npm run dev), then try again.';
+
+async function deleteSample() {
+  if (!currentSampleName || !btnDelete) return;
+  const confirmed = window.confirm(
+    `Delete "${currentSampleName}"?\n\nThis permanently removes the recording and can't be undone.`,
+  );
+  if (!confirmed) return;
+
+  const deletedName = currentSampleName;
+  const deletedIndex = currentIndex;
+  btnDelete.disabled = true;
+
+  try {
+    const res = await fetch('/delete-sample', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: deletedName }),
+    });
+    if (isOutdatedServer(res)) {
+      window.alert(RESTART_SERVER_MESSAGE);
+      btnDelete.disabled = false;
+      return;
+    }
+    if (!res.ok) throw new Error(`Server returned ${res.status}`);
+
+    if (previewSource) togglePreview(); // stop a preview of the deleted file
+    // Re-register so the "Full Bank" instruments drop the deleted file.
+    try {
+      await registerAudienceSamples();
+    } catch (e) {
+      console.warn('[editor] Strudel refresh warning:', e);
+    }
+    // Stay near where you were, so several bad takes can be deleted in a row.
+    await refreshSampleList(deletedIndex);
+    await onSampleDeletedCallback?.(deletedName.replace(/\.[^.]+$/, ''));
+  } catch (err) {
+    console.error('[editor] Delete failed:', err);
+    btnDelete.textContent = 'Error!';
+    setTimeout(() => {
+      btnDelete.textContent = '🗑️ Delete';
+      btnDelete.disabled = false;
+    }, 1500);
+  }
+}
+
+export async function refreshSampleList(selectIdx = 0) {
   try {
     const res = await fetch('/strudel.json');
     if (!res.ok) return;
     catalogData = await res.json();
 
     availableSamples = [];
-    ['audience_lead', 'audience_bass', 'audience_chord', 'audience_drum'].forEach((layer) => {
+    SAMPLE_LAYER_KEYS.forEach((layer) => {
       if (catalogData[layer]) {
         catalogData[layer].forEach((file) => availableSamples.push(file));
       }
@@ -215,6 +282,8 @@ export async function refreshSampleList() {
       if (btnNext) btnNext.disabled = true;
       if (btnPreview) btnPreview.disabled = true;
       if (btnSave) btnSave.disabled = true;
+      if (btnDelete) btnDelete.disabled = true;
+      currentSampleName = null;
       if (ctx && canvas) ctx.clearRect(0, 0, canvas.width, canvas.height);
       updatePitchUI(null);
       return;
@@ -228,8 +297,7 @@ export async function refreshSampleList() {
       selectSample.appendChild(opt);
     });
 
-    // Select the first available sample
-    selectIndex(0);
+    await selectIndex(Math.min(selectIdx, availableSamples.length - 1));
   } catch (err) {
     console.error('[editor] Error loading samples catalog:', err);
   }
@@ -244,22 +312,36 @@ async function selectIndex(idx) {
   await selectFile(availableSamples[idx]);
 }
 
+// Each selection loads audio asynchronously; a slower earlier load must not
+// overwrite a newer selection (e.g. quick arrow clicks), or the editor would show
+// one sample while Rename/Save/Delete act on another.
+let selectRequestId = 0;
+
 export async function selectFile(filename) {
+  const requestId = ++selectRequestId;
   currentSampleName = filename;
   currentIndex = availableSamples.indexOf(filename);
+  // Keep the dropdown on the loaded file (e.g. after recording), so what's shown is what Delete acts on.
+  if (selectSample) selectSample.value = filename;
   if (btnPrev) btnPrev.disabled = availableSamples.length <= 1;
   if (btnNext) btnNext.disabled = availableSamples.length <= 1;
 
   if (btnPreview) btnPreview.disabled = true;
   if (btnSave) btnSave.disabled = true;
+  // Deletable and renamable even if the audio below fails to load: a broken file is a prime candidate.
+  if (btnDelete) btnDelete.disabled = false;
+  if (inputRename) inputRename.value = filename.replace(/\.[^.]+$/, '');
 
   // Fetch audio
   try {
     const res = await fetch(`/samples/${filename}`);
+    if (!res.ok) throw new Error(`Server returned ${res.status}`);
     const arrayBuffer = await res.arrayBuffer();
 
     audioCtx = getAudioContext();
-    originalBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+    const decoded = await audioCtx.decodeAudioData(arrayBuffer);
+    if (requestId !== selectRequestId) return; // a newer selection took over
+    originalBuffer = decoded;
 
     // Reset sliders
     const trimStartEl = document.getElementById('editor-trim-start');
@@ -271,17 +353,15 @@ export async function selectFile(filename) {
     if (fineTuneEl) fineTuneEl.value = 0;
     if (displayFineTune) displayFineTune.innerText = '0¢';
 
-    if (inputRename) {
-      inputRename.value = filename.replace(/\.[^.]+$/, '');
-    }
-
     if (btnPreview) btnPreview.disabled = false;
     if (btnSave) btnSave.disabled = false;
 
     drawWaveform();
     analyzePitchNow();
   } catch (err) {
+    if (requestId !== selectRequestId) return;
     console.error('[editor] Failed to load audio file', err);
+    originalBuffer = null; // don't let Preview/Save act on the previous sample's audio
     if (ctx && canvas) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.fillStyle = '#ff6b6b';

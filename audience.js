@@ -2,10 +2,10 @@
  * audience.js — WebSocket client for the audience phone page.
  *
  * Opens a connection to the show server, sends action requests on button tap,
- * handles rate-limiting and lock state from the operator.
+ * handles rate-limiting and which controls the operator has switched on.
  */
 
-import { MSG, RATE_LIMIT_MS } from './src/ws/protocol.js';
+import { MSG, RATE_LIMIT_MS, DEFAULT_AUDIENCE_ACCESS, isActionAllowed } from './src/ws/protocol.js';
 
 // ─── DOM refs ─────────────────────────────────────────
 const dot = document.getElementById('connection-dot');
@@ -14,14 +14,17 @@ const buttonGrid = document.getElementById('button-grid');
 const bankIndicator = document.getElementById('bank-indicator');
 const btnPrev = document.getElementById('btn-prev');
 const btnNext = document.getElementById('btn-next');
+const footer = document.getElementById('audience-footer');
 
 // ─── State ────────────────────────────────────────────
 let ws = null;
-let lockedActions = new Set();
+let access = { ...DEFAULT_AUDIENCE_ACCESS }; // which controls the operator has switched on
 let lastSendTime = 0;
 let reconnectDelay = 500; // ms, doubles on each failure up to 10 s
-let currentBankIndex = 0;
+// The page is tracked by its first button, so it stays put when other pages are hidden or shown.
+let currentPageKey = null;
 let currentPadLabels = {}; // stores mapping from 'pad_1' -> '808 Kick'
+let currentPadKinds = {}; // 'pad_1' -> 'assigned' | 'empty' | 'note' | 'cycle' | 'toggle'
 
 // ─── Info Bar ─────────────────────────────────────────
 const infoBar = document.getElementById('audience-info-bar');
@@ -39,7 +42,7 @@ const ACTION_MESSAGES = {
   more_energy: "You gave the music more energy!",
   calmer: "You made the music calmer.",
   new_chords: "You asked for new chords.",
-  weird: "You made things weird!",
+  weird: "You made a random change.",
   faster: "You made the music faster.",
   slower: "You made the music slower.",
   octave_up: "You made the track increase by one octave.",
@@ -104,12 +107,11 @@ const BANKS = [
     { action: 'pad_11', icon: '🎛️', label: 'Pad 11' },
     { action: 'pad_12', icon: '🎛️', label: 'Pad 12' },
   ],
-  // Bank 7 (Pads 13-16)
+  // Bank 7 (Pads 13-15; pad 16 switches banks, which stays with the performers)
   [
     { action: 'pad_13', icon: '🎛️', label: 'Pad 13' },
     { action: 'pad_14', icon: '🎛️', label: 'Pad 14' },
     { action: 'pad_15', icon: '🎛️', label: 'Pad 15' },
-    { action: 'pad_16', icon: '🎛️', label: 'Pad 16' },
   ],
 ];
 
@@ -136,11 +138,14 @@ function connect() {
     let msg;
     try { msg = JSON.parse(event.data); } catch { return; }
 
-    if (msg.type === MSG.LOCK_UPDATE) {
-      lockedActions = new Set(msg.locked || []);
-      updateButtonStates();
+    if (msg.type === MSG.ACCESS_UPDATE) {
+      const previous = access;
+      access = { ...DEFAULT_AUDIENCE_ACCESS, ...msg.access };
+      renderBank();
+      announceAccessChange(previous, access);
     } else if (msg.type === MSG.SYNC_PADS) {
       currentPadLabels = msg.padLabels || {};
+      currentPadKinds = msg.padKinds || {};
       renderBank(); // re-render to show updated labels
     }
   };
@@ -154,6 +159,8 @@ function scheduleReconnect() {
 }
 
 function setConnectionState(connected) {
+  // Neither green nor red while offline: presses can't go anywhere.
+  buttonGrid.classList.toggle('offline', !connected);
   if (connected) {
     dot.classList.add('connected');
     label.textContent = 'Connected';
@@ -164,35 +171,63 @@ function setConnectionState(connected) {
 }
 
 // ─── Button handling ──────────────────────────────────
+// The rate limit is per phone, not per button, so the cooldown tint goes on the
+// whole grid; it survives page changes because renderBank() only replaces its children.
+let cooldownTimer = null;
+
+function setCoolingDown(coolingDown) {
+  buttonGrid.classList.toggle('cooling-down', coolingDown);
+  buttonGrid.classList.toggle('ready', !coolingDown);
+}
+
+function startCooldown() {
+  setCoolingDown(true);
+  clearTimeout(cooldownTimer);
+  cooldownTimer = setTimeout(() => setCoolingDown(false), RATE_LIMIT_MS);
+}
+
+// Empty pads play nothing, so pressing one would only waste the phone's cooldown.
+function isEmptyPad(action) {
+  return currentPadKinds[action] === 'empty';
+}
+
 function updateButtonStates() {
-  const buttons = document.querySelectorAll('.action-btn');
-  buttons.forEach((btn) => {
-    const action = btn.dataset.action;
-    if (lockedActions.has(action)) {
-      btn.classList.add('locked');
-      btn.disabled = true;
-    } else {
-      btn.classList.remove('locked');
-      btn.disabled = false;
-    }
+  document.querySelectorAll('.action-btn').forEach((btn) => {
+    btn.disabled = isEmptyPad(btn.dataset.action);
   });
+}
+
+function announceAccessChange(previous, next) {
+  if (previous.all === next.all && previous.music === next.music) return;
+  if (!next.all) {
+    showInfo('The performers have paused audience controls for now.');
+  } else if (!next.music) {
+    showInfo('Music controls are paused — you can still play the pads!');
+  } else {
+    showInfo('Audience controls are back on!');
+  }
 }
 
 function sendAction(action, btn) {
   const now = Date.now();
 
+  // Checked first: a switched-off control shouldn't use up the cooldown.
+  if (!isActionAllowed(action, access)) {
+    showInfo('That control is switched off right now.');
+    return;
+  }
   // Client-side rate limit
   if (now - lastSendTime < RATE_LIMIT_MS) {
     showInfo("You have to wait until you can press again.");
     return;
   }
-  if (!ws || ws.readyState !== WebSocket.OPEN) return;
-  if (lockedActions.has(action)) {
-    showInfo("That action is currently locked by the operator.");
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    showInfo("Not connected yet — reconnecting, try again in a moment.");
     return;
   }
 
   lastSendTime = now;
+  startCooldown();
 
   ws.send(JSON.stringify({ type: MSG.ACTION_REQUEST, action }));
 
@@ -208,9 +243,7 @@ function sendAction(action, btn) {
   btn.disabled = true;
   setTimeout(() => {
     btn.classList.remove('cooldown');
-    if (!lockedActions.has(action)) {
-      btn.disabled = false;
-    }
+    updateButtonStates();
   }, RATE_LIMIT_MS);
 }
 
@@ -239,12 +272,46 @@ function createRipple(btn, event) {
 }
 
 // ─── Rendering ─────────────────────────────────────────
+/** Pages with controls the operator has switched on (a page is all music controls or all pads). */
+function visiblePages() {
+  return BANKS.filter((page) => page.some((btnInfo) => isActionAllowed(btnInfo.action, access)));
+}
+
+function currentPageIndex(pages) {
+  const index = pages.findIndex((page) => page[0].action === currentPageKey);
+  return index === -1 ? 0 : index;
+}
+
+function goToPage(step) {
+  const pages = visiblePages();
+  if (pages.length === 0) return;
+  const index = (currentPageIndex(pages) + step + pages.length) % pages.length;
+  currentPageKey = pages[index][0].action;
+  renderBank();
+}
+
 function renderBank() {
   buttonGrid.innerHTML = '';
-  const bank = BANKS[currentBankIndex];
-  
-  bankIndicator.textContent = `Page ${currentBankIndex + 1} of ${BANKS.length}`;
-  
+  const pages = visiblePages();
+  const paused = pages.length === 0;
+  buttonGrid.classList.toggle('paused', paused);
+  btnPrev.disabled = pages.length <= 1;
+  btnNext.disabled = pages.length <= 1;
+
+  if (paused) {
+    bankIndicator.textContent = 'Paused';
+    const message = document.createElement('div');
+    message.className = 'paused-message';
+    message.textContent = '⏸️ Audience controls are paused. Hang tight — they may come back on soon!';
+    buttonGrid.appendChild(message);
+    return;
+  }
+
+  const index = currentPageIndex(pages);
+  const bank = pages[index];
+  currentPageKey = bank[0].action;
+  bankIndicator.textContent = `Page ${index + 1} of ${pages.length}`;
+
   bank.forEach(btnInfo => {
     const btn = document.createElement('button');
     btn.className = 'action-btn';
@@ -280,15 +347,11 @@ function renderBank() {
 }
 
 // ─── Init ─────────────────────────────────────────────
-btnPrev.addEventListener('click', () => {
-  currentBankIndex = (currentBankIndex - 1 + BANKS.length) % BANKS.length;
-  renderBank();
-});
+btnPrev.addEventListener('click', () => goToPage(-1));
+btnNext.addEventListener('click', () => goToPage(1));
 
-btnNext.addEventListener('click', () => {
-  currentBankIndex = (currentBankIndex + 1) % BANKS.length;
-  renderBank();
-});
-
+footer.textContent = `Tap a button to influence the live performance. One action every ${RATE_LIMIT_MS / 1000} seconds.`;
+setCoolingDown(false);
+buttonGrid.classList.add('offline'); // until the first connection opens
 renderBank();
 connect();

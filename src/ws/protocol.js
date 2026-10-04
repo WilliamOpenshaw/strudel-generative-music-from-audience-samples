@@ -117,17 +117,31 @@ export const ACTION_EFFECTS = {
 export const MSG = {
   /** Server → operator: an audience member pressed a button */
   AUDIENCE_ACTION: 'audience_action',
-  /** Server → audience: lock state changed */
-  LOCK_UPDATE: 'lock_update',
+  /** Server → audience & operators: which audience controls are switched on ({ access }) */
+  ACCESS_UPDATE: 'access_update',
   /** Server → both: general status (e.g. connection count) */
   STATUS: 'status',
   /** Audience → server: an action request */
   ACTION_REQUEST: 'action_request',
-  /** Operator → server: toggle lock on an action */
-  TOGGLE_LOCK: 'toggle_lock',
+  /** Operator → server: switch audience controls on/off ({ access: { all, music } }) */
+  SET_ACCESS: 'set_access',
   /** Operator → server → audience: sync pad sample labels */
   SYNC_PADS: 'sync_pads',
 };
+
+// ─── Audience access ──────────────────────────────────
+/**
+ * Operator switches: `all` turns every audience control on/off; `music` turns
+ * off just the controls that change the generated music (everything except
+ * the pads). Pads stay playable while `all` is on.
+ */
+export const DEFAULT_AUDIENCE_ACCESS = { all: true, music: true };
+
+export const isPadAction = (action) => action.startsWith('pad_');
+
+export function isActionAllowed(action, access) {
+  return access.all && (access.music || isPadAction(action));
+}
 
 // ─── Rate limit ───────────────────────────────────────
 /** Minimum milliseconds between accepted actions from a single audience client. */

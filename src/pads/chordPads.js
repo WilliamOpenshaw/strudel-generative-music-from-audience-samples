@@ -1,23 +1,24 @@
 /**
- * Chord note pads (banks 3 and 4): pads 1-14 play the tones of the current
- * chord, stacked upward across octaves from pad 1 (lowest) to pad 14.
+ * Chord note pads (banks 3 and 4): pads 1-13 play the tones of the current
+ * chord, stacked upward across octaves from pad 1 (lowest) to pad 13.
+ * Pad 14 picks the chord, pad 15 the instrument/sample, pad 16 the bank.
  */
 
 import { SCALES } from '../patterns/generative.js';
 import { midiToNoteInfo } from '../samples/pitch.js';
 
-export const NOTE_PAD_COUNT = 14;
+export const NOTE_PAD_COUNT = 13;
 
-// Pitched, melody-friendly sounds only (no noise, percussion or sound effects).
+// Pitched, melody-friendly sounds only (no noise, percussion or sound effects), and only
+// ones that start within ~1.5 s of first use (tested 2026-10-03; slower soundfonts removed).
 export const MELODY_PAD_INSTRUMENTS = [
-  'gm_piano', 'gm_epiano1', 'gm_epiano2', 'gm_harpsichord', 'gm_clavinet', 'gm_celesta',
-  'gm_music_box', 'gm_glockenspiel', 'gm_vibraphone', 'gm_marimba', 'gm_xylophone',
-  'gm_kalimba', 'gm_steel_drums', 'gm_dulcimer', 'gm_orchestral_harp', 'gm_koto', 'gm_sitar',
-  'gm_banjo', 'gm_acoustic_guitar_nylon', 'gm_acoustic_guitar_steel',
+  'gm_epiano1', 'gm_epiano2', 'gm_harpsichord', 'gm_clavinet', 'gm_celesta',
+  'gm_glockenspiel', 'gm_marimba', 'gm_kalimba', 'gm_orchestral_harp', 'gm_koto', 'gm_sitar',
+  'gm_banjo', 'gm_acoustic_guitar_nylon',
   'gm_electric_guitar_clean', 'gm_electric_guitar_jazz', 'gm_pizzicato_strings', 'gm_violin',
-  'gm_fiddle', 'gm_flute', 'gm_piccolo', 'gm_pan_flute', 'gm_recorder', 'gm_ocarina',
+  'gm_fiddle', 'gm_flute', 'gm_piccolo', 'gm_pan_flute', 'gm_ocarina',
   'gm_shakuhachi', 'gm_clarinet', 'gm_oboe', 'gm_soprano_sax', 'gm_alto_sax', 'gm_trumpet',
-  'gm_harmonica', 'gm_accordion', 'gm_bandoneon', 'gm_lead_1_square', 'gm_lead_2_sawtooth',
+  'gm_harmonica', 'gm_bandoneon', 'gm_lead_1_square', 'gm_lead_2_sawtooth',
   'gm_lead_3_calliope', 'gm_lead_5_charang', 'gm_lead_6_voice',
   'sawtooth', 'square', 'triangle', 'sine', 'supersaw', 'pulse',
 ];
@@ -90,6 +91,24 @@ export function currentChordSymbol(state, cycle = null) {
     if (sym !== '~') return sym;
   }
   return firstChord || fallback;
+}
+
+/** Chords the pads can be set to: the current key's chord set, so choices stay in key. */
+export function chordChoices(state) {
+  return (SCALES[state.scaleMode] || SCALES.minor).chordPool;
+}
+
+/** The performer's chosen pad chord, or null for "Auto" (follow the music). */
+export function chosenPadChord(state) {
+  // A choice from a previous key no longer fits, so it falls back to Auto.
+  return chordChoices(state).includes(state.notePadChord) ? state.notePadChord : null;
+}
+
+/** Next pad-14 setting: Auto → each chord in the key → back to Auto. */
+export function nextPadChordChoice(state) {
+  const sequence = [null, ...chordChoices(state)];
+  const index = sequence.indexOf(chosenPadChord(state));
+  return sequence[(index + 1) % sequence.length];
 }
 
 export function sampleRateForNote(midi) {

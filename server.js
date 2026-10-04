@@ -11,15 +11,16 @@
 
 import { createServer as createHttpServer } from 'http';
 import { fileURLToPath } from 'url';
-import { dirname, resolve } from 'path';
-import { writeFile, readFile, readdir, stat } from 'fs/promises';
+import { dirname, resolve, basename } from 'path';
+import { writeFile, readFile, readdir, stat, unlink } from 'fs/promises';
 import os from 'os';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import express from 'express';
 import { WebSocketServer } from 'ws';
 import { URL } from 'url';
-import { MSG, RATE_LIMIT_MS, ACTIONS } from './src/ws/protocol.js';
+import { MSG, RATE_LIMIT_MS, ACTIONS, DEFAULT_AUDIENCE_ACCESS, isActionAllowed } from './src/ws/protocol.js';
+import { SAMPLE_LAYER_KEYS } from './src/samples/layers.js';
 
 const execAsync = promisify(exec);
 
@@ -90,16 +91,35 @@ const app = express();
 // Allow large payloads for audio blobs
 app.use(express.json({ limit: '50mb' }));
 
+const SAMPLES_DIR = resolve(__dirname, 'public', 'samples');
+const SAMPLE_EXTENSIONS = /\.(webm|wav|ogg|mp4|mp3)$/i;
+
+// These endpoints are reachable by anyone on the venue Wi-Fi, so a filename from
+// a request must be a plain audio file name inside the samples folder.
+function isSafeSampleFilename(name) {
+  return (
+    typeof name === 'string' &&
+    name === basename(name) &&
+    !name.startsWith('.') &&
+    SAMPLE_EXTENSIONS.test(name) &&
+    resolve(SAMPLES_DIR, name).startsWith(SAMPLES_DIR)
+  );
+}
+
+function emptyCatalog() {
+  return { _base: './samples/', ...Object.fromEntries(SAMPLE_LAYER_KEYS.map((key) => [key, []])) };
+}
+
 // ─── Strudel Catalog Sync Helper ─────────────────────
 async function syncStrudelCatalog(newLayer, newFilename) {
   const strudelJsonPath = resolve(__dirname, 'public', 'strudel.json');
-  const samplesDir = resolve(__dirname, 'public', 'samples');
+  const samplesDir = SAMPLES_DIR;
   let catalog = {};
   try {
     const content = await readFile(strudelJsonPath, 'utf-8');
     catalog = JSON.parse(content);
   } catch (e) {
-    catalog = { _base: './samples/', audience_lead: [], audience_bass: [], audience_chord: [], audience_drum: [] };
+    catalog = emptyCatalog();
   }
 
   if (newLayer && newFilename) {
@@ -116,11 +136,18 @@ async function syncStrudelCatalog(newLayer, newFilename) {
     console.warn('[server] Could not read samples directory:', e);
   }
 
-  for (const key of ['audience_lead', 'audience_bass', 'audience_chord', 'audience_drum']) {
+  for (const key of SAMPLE_LAYER_KEYS) {
     if (catalog[key]) {
       catalog[key] = catalog[key].filter((f) => existingFiles.has(f));
     } else {
       catalog[key] = [];
+    }
+  }
+
+  // Drop per-file sound names whose file is gone (deleted or renamed).
+  for (const [key, value] of Object.entries(catalog)) {
+    if (!key.startsWith('_') && typeof value === 'string' && !existingFiles.has(value)) {
+      delete catalog[key];
     }
   }
 
@@ -142,6 +169,10 @@ app.post('/upload-sample', async (req, res) => {
     const { layer, dataUri } = req.body;
     if (!layer || !dataUri) {
       return res.status(400).json({ error: 'Missing layer or dataUri' });
+    }
+    // The layer becomes part of the filename, so only known layers are allowed.
+    if (!SAMPLE_LAYER_KEYS.includes(layer)) {
+      return res.status(400).json({ error: 'Unknown layer' });
     }
 
     const matches = dataUri.match(/^data:(.+);base64,(.+)$/);
@@ -184,8 +215,17 @@ app.post('/replace-sample', async (req, res) => {
       return res.status(400).json({ error: 'Invalid dataUri format' });
     }
 
+    if (!isSafeSampleFilename(filename)) {
+      return res.status(400).json({ error: 'Invalid filename' });
+    }
+
     const base64Data = matches[2];
-    const filePath = resolve(__dirname, 'public', 'samples', filename);
+    const filePath = resolve(SAMPLES_DIR, filename);
+    try {
+      await stat(filePath);
+    } catch (e) {
+      return res.status(404).json({ error: 'Sample file not found' });
+    }
 
     // Overwrite the file
     const buffer = Buffer.from(base64Data, 'base64');
@@ -208,12 +248,16 @@ app.post('/rename-sample', async (req, res) => {
       return res.status(400).json({ error: 'Missing oldFilename or newName' });
     }
 
-    const samplesDir = resolve(__dirname, 'public', 'samples');
+    if (!isSafeSampleFilename(oldFilename)) {
+      return res.status(400).json({ error: 'Invalid filename' });
+    }
+
+    const samplesDir = SAMPLES_DIR;
     const oldPath = resolve(samplesDir, oldFilename);
 
     // Check if old file exists
     try {
-      await readFile(oldPath);
+      await stat(oldPath);
     } catch (e) {
       return res.status(404).json({ error: 'Old sample file not found' });
     }
@@ -233,9 +277,18 @@ app.post('/rename-sample', async (req, res) => {
       cleanName += ext;
     }
 
+    if (!isSafeSampleFilename(cleanName)) {
+      return res.status(400).json({ error: 'Invalid new name' });
+    }
+
     const newPath = resolve(samplesDir, cleanName);
 
     if (oldFilename !== cleanName) {
+      // Renaming onto an existing file would silently overwrite that recording.
+      const taken = await stat(newPath).then(() => true, () => false);
+      if (taken) {
+        return res.status(409).json({ error: 'A sample with that name already exists' });
+      }
       const { rename } = await import('fs/promises');
       await rename(oldPath, newPath);
     }
@@ -247,10 +300,10 @@ app.post('/rename-sample', async (req, res) => {
       const content = await readFile(strudelJsonPath, 'utf-8');
       catalog = JSON.parse(content);
     } catch (e) {
-      catalog = { _base: './samples/', audience_lead: [], audience_bass: [], audience_chord: [], audience_drum: [] };
+      catalog = emptyCatalog();
     }
 
-    for (const key of ['audience_lead', 'audience_bass', 'audience_chord', 'audience_drum']) {
+    for (const key of SAMPLE_LAYER_KEYS) {
       if (catalog[key]) {
         catalog[key] = catalog[key].map((f) => (f === oldFilename ? cleanName : f));
       }
@@ -267,6 +320,53 @@ app.post('/rename-sample', async (req, res) => {
   } catch (err) {
     console.error('[server] Error renaming sample:', err);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ─── Sample Delete Endpoint ───────────────────────────
+app.post('/delete-sample', async (req, res) => {
+  try {
+    const { filename } = req.body;
+    if (!isSafeSampleFilename(filename)) {
+      return res.status(400).json({ error: 'Invalid filename' });
+    }
+    try {
+      await unlink(resolve(SAMPLES_DIR, filename));
+    } catch (e) {
+      return res.status(404).json({ error: 'Sample file not found' });
+    }
+    await syncStrudelCatalog(); // drops it from the layer lists and its sound name
+    res.json({ success: true, filename });
+  } catch (err) {
+    console.error('[server] Error deleting sample:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ─── Host Messages (host.html) ────────────────────────
+// Recorded host announcements, played in order of the number their filename starts
+// with ("01 welcome.mp3", "2 rules.wav", "10 thanks.m4a"). Served straight from the
+// folder so files added later work without a rebuild.
+const HOST_MESSAGES_DIR = resolve(__dirname, 'public', 'host-messages');
+const HOST_AUDIO_EXTENSIONS = /\.(mp3|wav|ogg|webm|m4a|mp4|aac|flac)$/i;
+
+app.use('/host-messages', express.static(HOST_MESSAGES_DIR));
+
+app.get('/api/host-messages', async (req, res) => {
+  try {
+    const files = await readdir(HOST_MESSAGES_DIR).catch(() => []);
+    const leadingNumber = (name) => {
+      const match = /^\s*(\d+)/.exec(name);
+      return match ? Number(match[1]) : Infinity; // unnumbered files go last
+    };
+    const messages = files
+      .filter((name) => HOST_AUDIO_EXTENSIONS.test(name) && !name.startsWith('.'))
+      .sort((a, b) => leadingNumber(a) - leadingNumber(b) || a.localeCompare(b, undefined, { numeric: true }))
+      .map((filename) => ({ filename, url: `/host-messages/${encodeURIComponent(filename)}` }));
+    res.json(messages);
+  } catch (err) {
+    console.error('[server] Error listing host messages:', err);
+    res.status(500).json({ error: 'Failed to list host messages' });
   }
 });
 
@@ -320,15 +420,24 @@ const server = createHttpServer(app);
 // ─── WebSocket server ─────────────────────────────────
 const wss = new WebSocketServer({ noServer: true });
 
-/** Connected clients, tagged by role. */
+/** Connected clients, tagged by role. Displays are read-only pad screens (pads.html). */
 const operators = new Set();
 const audiences = new Set();
+const displays = new Set();
 
-/** Actions currently locked by the operator. */
-const lockedActions = new Set();
+/** Latest pad layout from the operator, replayed to clients that connect later. */
+let lastPadSync = null;
+
+/** Which audience controls the operator has switched on. Lives here so it's enforced even for stale phone pages. */
+let audienceAccess = { ...DEFAULT_AUDIENCE_ACCESS };
 
 /** Per-client rate-limit tracking (audience only). */
 const lastActionTime = new WeakMap();
+
+// Phones unlock after RATE_LIMIT_MS by their own clock, but this side measures
+// arrival times; network jitter could make an on-time press look early and get
+// silently dropped while the phone reports success. Allow a little slack.
+const RATE_LIMIT_GRACE_MS = 500;
 
 function broadcast(clients, data) {
   const json = JSON.stringify(data);
@@ -342,12 +451,14 @@ function sendAudienceCount() {
   broadcast(operators, payload);
 }
 
-function sendLockState(target) {
-  const payload = { type: MSG.LOCK_UPDATE, locked: [...lockedActions] };
+/** Send the current audience access to one client, or to every phone and dashboard. */
+function sendAccessState(target) {
+  const payload = { type: MSG.ACCESS_UPDATE, access: audienceAccess };
   if (target) {
     if (target.readyState === 1) target.send(JSON.stringify(payload));
   } else {
     broadcast(audiences, payload);
+    broadcast(operators, payload);
   }
 }
 
@@ -370,11 +481,17 @@ wss.on('connection', (ws) => {
   if (role === 'operator') {
     operators.add(ws);
     sendAudienceCount();
+    sendAccessState(ws); // the dashboard's switches show the server's real state
     console.log(`[ws] Operator connected (total operators: ${operators.size})`);
+  } else if (role === 'display') {
+    displays.add(ws);
+    if (lastPadSync) ws.send(JSON.stringify(lastPadSync));
+    console.log(`[ws] Pad display connected (total displays: ${displays.size})`);
   } else {
     audiences.add(ws);
     sendAudienceCount();
-    sendLockState(ws); // tell this audience client what's locked
+    sendAccessState(ws); // tell this phone which controls are on
+    if (lastPadSync) ws.send(JSON.stringify(lastPadSync));
     console.log(`[ws] Audience connected (total audience: ${audiences.size})`);
   }
 
@@ -383,17 +500,15 @@ wss.on('connection', (ws) => {
     try { msg = JSON.parse(raw); } catch { return; }
 
     if (role === 'audience' && msg.type === MSG.ACTION_REQUEST) {
+      // ── Validate & access check (before rate limiting, so a refused press doesn't cost a cooldown) ──
+      if (!Object.values(ACTIONS).includes(msg.action)) return;
+      if (!isActionAllowed(msg.action, audienceAccess)) return; // switched off by the operator
+
       // ── Rate limit ──
       const now = Date.now();
       const last = lastActionTime.get(ws) || 0;
-      if (now - last < RATE_LIMIT_MS) return; // silently drop
+      if (now - last < RATE_LIMIT_MS - RATE_LIMIT_GRACE_MS) return; // silently drop
       lastActionTime.set(ws, now);
-
-      // ── Lock check ──
-      if (lockedActions.has(msg.action)) return; // operator vetoed
-
-      // ── Validate action ──
-      if (!Object.values(ACTIONS).includes(msg.action)) return;
 
       // Forward to operators
       broadcast(operators, {
@@ -403,29 +518,31 @@ wss.on('connection', (ws) => {
       });
     }
 
-    if (role === 'operator' && msg.type === MSG.TOGGLE_LOCK) {
-      const action = msg.action;
-      if (!Object.values(ACTIONS).includes(action)) return;
-      if (lockedActions.has(action)) {
-        lockedActions.delete(action);
-      } else {
-        lockedActions.add(action);
-      }
-      sendLockState(); // broadcast new lock state to all audience clients
-      // Also confirm to operators
-      broadcast(operators, { type: MSG.LOCK_UPDATE, locked: [...lockedActions] });
+    if (role === 'operator' && msg.type === MSG.SET_ACCESS) {
+      const { all, music } = msg.access || {};
+      if (typeof all === 'boolean') audienceAccess.all = all;
+      if (typeof music === 'boolean') audienceAccess.music = music;
+      sendAccessState();
     }
 
     if (role === 'operator' && msg.type === MSG.SYNC_PADS) {
-      broadcast(audiences, { type: MSG.SYNC_PADS, padLabels: msg.padLabels });
+      lastPadSync = {
+        type: MSG.SYNC_PADS,
+        padLabels: msg.padLabels,
+        padKinds: msg.padKinds,
+        bankTitle: msg.bankTitle,
+      };
+      broadcast(audiences, lastPadSync);
+      broadcast(displays, lastPadSync);
     }
   });
 
   ws.on('close', () => {
     operators.delete(ws);
     audiences.delete(ws);
+    displays.delete(ws);
     sendAudienceCount();
-    console.log(`[ws] ${role} disconnected (operators: ${operators.size}, audience: ${audiences.size})`);
+    console.log(`[ws] ${role} disconnected (operators: ${operators.size}, audience: ${audiences.size}, displays: ${displays.size})`);
   });
 });
 

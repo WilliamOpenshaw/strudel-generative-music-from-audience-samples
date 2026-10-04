@@ -102,7 +102,9 @@ Here's what each part of the dashboard does:
 
 | Slider | Range | What it controls |
 |--------|-------|-----------------|
-| **Gain** | 0.00 – 1.00 | Master volume. 0 = silent, 1 = full volume. Default is 0.80. |
+| **Music** | 0.00 – 1.00 | Volume of the generated music (all four tracks). 0 = silent, 1 = full volume. Default is 0.80. |
+| **MIDI pads** | 0.00 – 1.00 | Volume of pads you play yourself, on the MIDI controller or by clicking pads on screen, in every bank. Default is 1.00. |
+| **Audience pads** | 0.00 – 1.00 | Volume of pads played from audience phones, in every bank. 0 mutes them. Default is 1.00. |
 | **Speed** | 0.25 – 2.00 | Playback speed multiplier. 1.00 = normal. Lower = slower, higher = faster. |
 | **CPM** | 60 – 180 | Cycles Per Minute — essentially the tempo. Higher = faster. Default is 120. |
 
@@ -131,10 +133,17 @@ These re-roll the random musical content **without stopping playback**:
 
 | Button | What it does |
 |--------|-------------|
-| **↻ Regenerate all** | Creates a brand-new random chord progression, melody, and bassline |
+| **↻ Regenerate all** | Re-rolls everything: chords, melody, bass, drums, instruments (any, built-in or recorded), time signature, scale, and densities |
+| **🎙️ Regenerate all (recordings)** | Same, but chords, melody and bass each get a different renamed recording (default-named takes are skipped), and drums get a built-in kit |
+| **🎹 Regenerate all (built-in)** | Same, but every track gets a built-in instrument, with no recordings |
+| **🗣️ Regenerate all (Lines)** | Same, but chords, melody and bass use recordings from the **Lines** pad bank; drums get a built-in kit |
+| **💥 Regenerate all (Effects)** | Same, but **all four tracks, drums included,** use recordings from the **Effects** pad bank (vocal sound effects double as percussion) |
 | **New chords** | Only re-rolls the chord progression |
 | **New melody** | Only re-rolls the lead melody |
 | **New bass** | Only re-rolls the bassline |
+| **New drums** | Only re-rolls the drum pattern |
+
+Whenever a regenerate button picks a random density, melody and bass get 4, 8 or 16, and drums get 4 or 8. The manual density buttons can still set any value up to 128.
 
 ### Live Readouts
 
@@ -184,18 +193,49 @@ The dashboard includes a built-in realtime bridge that allows audience members t
    For this to work locally without any extra configuration, the audience members must be connected to the **same Wi-Fi network** as the host computer. If you want people on cellular data or outside the venue to connect, you will need to host the project on a public server or use a tool like Ngrok to expose your local server to the public internet.
 
 ### What the Audience Can Do
-The mobile-friendly UI gives audience members 4 safe, rate-limited buttons:
-- **More energy**: Increases the tempo (CPM) slightly.
-- **Calmer**: Decreases the tempo.
-- **New chords**: Forces the engine to generate a brand new chord progression.
-- **Weird**: Randomly toggles extreme audio effects (heavy delay, deep low-pass filter, or big room reverb).
+The phone page has pages of rate-limited buttons:
+- **Music controls** (the first pages) change the generated music: more energy / calmer, new chords, a random change ("Weird"), faster / slower, octave up / down, new melody / bass / drums, regenerate all, and delay / reverb up / down.
+- **Pads** (the last pages) play whatever is on the dashboard's active pad bank.
 
-### Operator Guardrails (Veto / Locks)
-On the main operator dashboard, you will find an **Audience Controls** panel beneath the live readouts:
-- It displays the total number of connected audience phones.
-- It flashes the last action triggered by an audience member.
-- You can **veto/lock** any action. For example, if the tempo is getting too fast, you can check the "Lock energy" box. This will immediately disable the "More energy" button on all audience phones, preventing them from increasing it further.
-- Built-in rate limiting ensures one audience member cannot spam a button (max 1 action per 5 seconds per phone).
+### Operator Guardrails
+The **Audience Control** panel at the top of the dashboard shows how many phones are connected and the latest audience action, and has two switches:
+- **Audience controls:** turns every audience control on or off. When it's off, phones show a "paused" message.
+- **Music controls:** turns off just the buttons that change the generated music. Phones then show only the pads.
+
+The server enforces both switches, so a phone with an old page open can't get around them. They take effect on every phone immediately, and the dashboard shows the current state even after a reload. Built-in rate limiting stops any one phone from spamming (max 1 action per 5 seconds per phone).
+
+---
+
+## Host Messages (top of the show)
+
+A separate page plays your recorded host announcements, in order, from the MIDI pads.
+
+1. Put the recordings in `public/host-messages/`, numbered at the start of the file name: `01 welcome.mp3`, `02 phones out.wav`, ... (10 comes after 9; unnumbered files play last).
+2. Open the page from the dashboard's **🎙️ Host Messages ↗** link (or `http://localhost:3000/host.html`) and press **▶ Start**.
+
+| Control | What it does |
+|---------|-------------|
+| **Any pad** (or ▶ Play next) | Plays the next message, but only when nothing is playing. While a message plays, these pads do nothing. |
+| **Pad 16** (or Skip ▶▶) | Works any time: stops the current message and plays the next one. |
+| **Pad 13** (or ◀ Back) | Works any time: stops the current message and plays the previous one (to replay a message, press 13 then 16). |
+| **↺ Back to #1** / clicking a message in the list | Sets which message is "next up", without playing it. |
+
+The page shows the number and file name of the message playing now and of the one up next.
+
+While the Host Messages page is started, it **takes over the MIDI pads**: the dashboard ignores pad presses (its MIDI badge shows "pads → Host Messages"), so a pad doesn't also trigger a dashboard sound. The controller's knobs keep working on the dashboard. Press **■ Stop** to hand the pads back. If the window is closed without Stop, the dashboard takes them back within a few seconds. Both pages must be open in the same browser.
+
+After adding or renaming message files, press Stop and then Start to reload them.
+
+---
+
+## Pad Display on a Second Screen
+
+You can show the **Sample Pad Assignments** view in its own window, for example on a second monitor or a projector, while you keep controlling the dashboard on your main screen.
+
+1. In the dashboard, open the **🎹 Sample Pad Assignments** tab and click **↗ Open in Separate Window**. Or open `http://localhost:3000/pads.html` directly.
+2. Drag that window to the other screen and click **⛶ Fullscreen**.
+
+The pad display is a live, read-only mirror of the dashboard. It updates when you switch banks, reassign pads, change the Notes instrument or Sample Notes sample, or when the playing chord changes. It makes no sound itself, so audio always comes from the dashboard window. Keep exactly one dashboard window open: each dashboard window runs its own separate music engine.
 
 ---
 
@@ -236,6 +276,20 @@ When you're done, go back to the terminal where `npm run dev` is running and pre
 
 ---
 
+## Recording Audience Samples in the Dashboard
+
+In the **Sample Recording** panel, pick what you're recording, then press **🔴 Record** and **⏹ Stop**:
+
+| Type | Use it for | Where it goes |
+|------|-----------|---------------|
+| **Lead / Bass / Chords / Drums** | Sounds meant for a track's instrument | Available as an instrument for any track |
+| **Lines** | Spoken lines from the audience | Straight onto pad 1 of the **Lines** pad bank (others move down one) |
+| **Effects** | Verbal sound effects from the audience | Straight onto pad 1 of the **Effects** pad bank (others move down one) |
+
+In **Edit Sample** you can preview, trim/tune and save, **rename**, or **🗑️ Delete** a recording. Deleting asks for confirmation and can't be undone. It removes the file, takes it off any pads (the rest close the gap), and switches any track using it back to that track's default instrument.
+
+---
+
 ## Adding Audience Samples
 
 You can replace the default synthesizers with custom audience recordings. 
@@ -260,7 +314,7 @@ Supported formats: `.wav` (recommended), `.mp3`, `.ogg`.
 
 ### 3. Generate the Catalog
 
-After adding or renaming samples, you must regenerate the sample catalog so the dashboard knows they exist. Run this from the project folder:
+After adding or renaming samples **by hand in the folder**, you must regenerate the sample catalog so the dashboard knows they exist. (Recordings made in the dashboard update the catalog automatically. Don't run this if you rely on them: it rewrites `public/strudel.json` and forgets which recordings are Lines, Effects, etc.) Run this from the project folder:
 
 ```bash
 npx @strudel/sampler public/samples --json > public/strudel.json
@@ -301,10 +355,14 @@ The full build order (20 features across 6 phases) is documented in `planning no
 
 ### Recent Enhancements
 
-- **Expanded Sample Banks:** Four switchable pad banks; the 16th pad cycles through them on both the UI and MIDI controllers.
-  - **Banks 1–2:** up to 30 assignable one-shot samples. On startup they're filled automatically with the 30 most recently recorded samples that have been renamed. Samples still carrying a default name like `audience_lead_1789044106422` are skipped as likely failed takes.
-  - **Bank 3:** pads 1–14 play the notes of the current chord (following the progression while music plays), low to high, on a melody instrument. Pad 15 switches to a random melody instrument.
-  - **Bank 4:** the same chord notes, played by pitch-shifting a recorded sample (lower pads slower and deeper, higher pads faster and brighter). Pad 15 cycles through the renamed recorded samples.
+- **Expanded Sample Banks:** Four pad banks; the 16th pad cycles through them on both the UI and MIDI controllers.
+  - **Lines and Effects (banks 1–2):** up to 30 assignable one-shot samples.
+    - **On startup:** each bank fills with the newest renamed recordings of its own type (recorded as Lines or Effects), and any space left is filled with other renamed recordings, newest first. Samples still carrying a default name like `audience_lead_1789044106422` are skipped as likely failed takes.
+    - **New recordings:** recording a new sample as **Lines** or **Effects** puts it straight onto pad 1 of that bank. The others move down one pad, and the one on pad 15 drops off. Rename a take to keep it in the bank after a reload, since unrenamed takes are left out at startup.
+  - **Notes (bank 3):** pads 1–13 play the notes of the current chord, low to high, on a melody instrument. Pad 14 picks the chord. Pad 15 switches to a random melody instrument.
+  - **Sample Notes (bank 4):** the same chord notes, played by pitch-shifting a recorded sample (lower pads slower and deeper, higher pads faster and brighter). Pad 14 picks the chord. Pad 15 cycles through the renamed recorded samples.
+  - **Pad 14 (chord) in Notes and Sample Notes:** each press steps through **Auto**, then each chord in the current key (e.g. Cm7, Fm7, Gm7, Bb7, EbM7, AbM7 in C minor), then back to Auto. On Auto, the pads follow the chord the music is playing (or the progression's first chord when stopped). On a chosen chord, they stay on it, shown as "(chosen)" in the bank title. Both banks share the choice. If the key changes, a chosen chord that's no longer in the key returns to Auto.
+  - **Turning banks on and off:** in the dashboard's pad panel, untick a bank's checkbox to leave it out. Pad 16 then skips it, for example only switching between Lines and Effects. Turning off the bank you're on moves to the next one that's on, and at least one bank always stays on. The choice is remembered in that browser across reloads.
 - **Enhanced Audience Controls:** Updated the mobile browser controls to display the assigned sample filename on each pad. Added an info bar to provide feedback on recent actions (e.g., rate limit cooldowns and effect changes).
 - **Improved Regenerate All:** Enhanced the "Regenerate all" and "New Melody/Bass" dashboard buttons to also randomize instruments for each track, chord style, progression length, scale/mode, and note density. Added random recorded sample buttons (🎙️) to the instruments section.
 - **Refined Transpose Controls:** Removed global transpose (whole song up/down) from the dashboard and MIDI mapping. Modified the "Track Pitch" controls to shift up/down by two steps at a time.

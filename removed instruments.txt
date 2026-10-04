@@ -1,0 +1,156 @@
+REMOVED INSTRUMENTS
+===================
+
+Date: 2026-10-03
+
+These built-in instruments were removed from the Melody (Lead), Bass and Chords
+instrument dropdowns because they were silent or slow to start.
+
+How they were tested: each instrument was played on the lead track (other tracks off)
+and the audio output was measured. "Slow" means more than 1.5 seconds from
+selecting the instrument to its first sound. For comparison, a basic synth starts
+in about 0.6 seconds. Most removed instruments download their audio from the
+internet (GitHub) the first time they play, which is slow or unreliable on venue Wi-Fi.
+
+Totals: 117 removed (52 silent, 65 slow). 173 kept.
+  Basic synths:        4 of 4 kept
+  Strudel synths:      21 of 21 kept
+  General MIDI:        95 of 125 kept (30 removed)
+  Sampled instruments: 53 of 140 kept (87 removed)
+  Drum kits:           not tested, unchanged
+
+General MIDI instruments removed (30)
+-------------------------------------
+  gm_accordion              slow: 1.60 s to first sound
+  gm_acoustic_guitar_steel  slow: 1.81 s to first sound
+  gm_bassoon                slow: 1.52 s to first sound
+  gm_church_organ           slow: 1.62 s to first sound
+  gm_dulcimer               slow: 1.62 s to first sound
+  gm_fx_echoes              slow: 1.54 s to first sound
+  gm_fx_sci_fi              slow: 1.52 s to first sound
+  gm_guitar_fret_noise      slow: 1.61 s to first sound
+  gm_music_box              slow: 1.56 s to first sound
+  gm_pad_halo               slow: 1.54 s to first sound
+  gm_pad_new_age            silent (no sound within 6 s)
+  gm_pad_poly               silent (no sound within 6 s)
+  gm_pad_sweep              silent (no sound within 6 s)
+  gm_pad_warm               slow: 2.75 s to first sound
+  gm_piano                  slow: 2.50 s to first sound
+  gm_recorder               slow: 1.53 s to first sound
+  gm_rock_organ             slow: 1.94 s to first sound
+  gm_seashore               slow: 1.63 s to first sound
+  gm_shanai                 slow: 1.60 s to first sound
+  gm_steel_drums            slow: 1.56 s to first sound
+  gm_synth_bass_1           slow: 1.59 s to first sound
+  gm_synth_bass_2           slow: 1.69 s to first sound
+  gm_synth_strings_2        slow: 1.57 s to first sound
+  gm_tenor_sax              slow: 1.68 s to first sound
+  gm_tremolo_strings        slow: 1.64 s to first sound
+  gm_tuba                   slow: 1.53 s to first sound
+  gm_vibraphone             slow: 1.56 s to first sound
+  gm_viola                  slow: 1.84 s to first sound
+  gm_voice_oohs             slow: 1.56 s to first sound
+  gm_xylophone              slow: 1.65 s to first sound
+
+Sampled instruments removed (87)
+--------------------------------
+  bassdrum2                 slow: 2.95 s to first sound
+  belltree                  slow: 1.72 s to first sound
+  clap                      slow: 1.56 s to first sound
+  clash                     slow: 1.98 s to first sound
+  clash2                    slow: 2.17 s to first sound
+  dantranh_tremolo          slow: 2.79 s to first sound
+  flexatone                 slow: 1.56 s to first sound
+  folkharp                  slow: 2.54 s to first sound
+  glockenspiel              silent (no sound within 6 s)
+  gong                      silent (no sound within 6 s)
+  gong2                     silent (no sound within 6 s)
+  guiro                     silent (no sound within 6 s)
+  handbells                 silent (no sound within 6 s)
+  handchimes                silent (no sound within 6 s)
+  harmonica                 silent (no sound within 6 s)
+  harmonica_soft            silent (no sound within 6 s)
+  harmonica_vib             silent (no sound within 6 s)
+  harp                      slow: 3.01 s to first sound
+  kalimba                   silent (no sound within 6 s)
+  kalimba2                  silent (no sound within 6 s)
+  kalimba3                  silent (no sound within 6 s)
+  kalimba4                  silent (no sound within 6 s)
+  kalimba5                  silent (no sound within 6 s)
+  kawai                     silent (no sound within 6 s)
+  marimba                   slow: 3.90 s to first sound
+  marktrees                 slow: 2.87 s to first sound
+  num                       silent (no sound within 6 s)
+  ocarina                   silent (no sound within 6 s)
+  ocarina_small             silent (no sound within 6 s)
+  ocarina_small_stacc       silent (no sound within 6 s)
+  ocarina_vib               silent (no sound within 6 s)
+  oceandrum                 silent (no sound within 6 s)
+  organ_4inch               silent (no sound within 6 s)
+  organ_8inch               silent (no sound within 6 s)
+  organ_full                silent (no sound within 6 s)
+  piano                     silent (no sound within 6 s)
+  piano1                    silent (no sound within 6 s)
+  pipeorgan_loud            silent (no sound within 6 s)
+  pipeorgan_loud_pedal      silent (no sound within 6 s)
+  pipeorgan_quiet           silent (no sound within 6 s)
+  pipeorgan_quiet_pedal     slow: 3.64 s to first sound
+  psaltery_bow              silent (no sound within 6 s)
+  psaltery_pluck            silent (no sound within 6 s)
+  psaltery_spiccato         silent (no sound within 6 s)
+  recorder_alto_stacc       slow: 2.42 s to first sound
+  recorder_alto_sus         silent (no sound within 6 s)
+  recorder_alto_vib         silent (no sound within 6 s)
+  recorder_bass_stacc       slow: 2.63 s to first sound
+  recorder_bass_sus         silent (no sound within 6 s)
+  recorder_bass_vib         silent (no sound within 6 s)
+  recorder_soprano_stacc    slow: 3.64 s to first sound
+  recorder_soprano_sus      slow: 2.78 s to first sound
+  recorder_tenor_sus        slow: 3.44 s to first sound
+  recorder_tenor_vib        slow: 1.90 s to first sound
+  samples                   silent (no sound within 6 s)
+  sax                       slow: 2.60 s to first sound
+  sax_stacc                 slow: 2.17 s to first sound
+  sax_vib                   slow: 3.66 s to first sound
+  saxello                   slow: 4.62 s to first sound
+  saxello_vib               slow: 3.27 s to first sound
+  shaker_large              silent (no sound within 6 s)
+  shaker_small              silent (no sound within 6 s)
+  snare_hi                  silent (no sound within 6 s)
+  snare_low                 silent (no sound within 6 s)
+  snare_modern              silent (no sound within 6 s)
+  snare_rim                 silent (no sound within 6 s)
+  steinway                  silent (no sound within 6 s)
+  strumstick                slow: 2.70 s to first sound
+  super64_acc               slow: 1.93 s to first sound
+  sus_cymbal                slow: 2.31 s to first sound
+  sus_cymbal2               slow: 2.55 s to first sound
+  tambourine                slow: 1.56 s to first sound
+  timpani_roll              slow: 3.02 s to first sound
+  timpani2                  slow: 2.71 s to first sound
+  tom_mallet                silent (no sound within 6 s)
+  trainwhistle              silent (no sound within 6 s)
+  tubularbells              slow: 3.24 s to first sound
+  tubularbells2             silent (no sound within 6 s)
+  vibraphone                slow: 3.61 s to first sound
+  vibraphone_bowed          silent (no sound within 6 s)
+  vibraphone_soft           slow: 5.60 s to first sound
+  vibraslap                 slow: 3.29 s to first sound
+  wineglass                 silent (no sound within 6 s)
+  wineglass_slow            slow: 4.13 s to first sound
+  xylophone_hard_ff         slow: 2.66 s to first sound
+  xylophone_medium_pp       slow: 1.73 s to first sound
+  xylophone_soft_ff         slow: 2.34 s to first sound
+
+Notes pad bank (bank 3)
+-----------------------
+The same rule was applied to the instruments the Notes bank picks from (pad 15).
+Removed from that list: gm_piano, gm_music_box, gm_vibraphone, gm_xylophone, gm_steel_drums, gm_dulcimer, gm_acoustic_guitar_steel, gm_recorder, gm_accordion.
+Its default instrument changed from gm_piano (2.5 s) to gm_epiano1 (1.1 s).
+
+Restoring an instrument
+-----------------------
+Add its name back to the matching list in src/soundfonts/strudel-instruments.js
+("gm" for General MIDI, "dirtSamples" for sampled instruments). The previous full
+lists are in git history. Storing the samples locally (after the show) would make
+most of the slow ones fast again.
