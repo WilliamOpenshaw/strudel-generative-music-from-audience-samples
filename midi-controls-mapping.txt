@@ -1,56 +1,73 @@
-# M-VAVE SMC-PAD Custom MIDI Mapping
+# M-VAVE SMC-PAD MIDI Mapping (current)
 
-## Pad Bank 1 (Notes 1-16)
-- Pad 1 (Note 1): Toggle Drums Mute/Unmute
-- Pad 2 (Note 2): Toggle Chords Mute/Unmute
-- Pad 3 (Note 3): Toggle Bass Mute/Unmute
-- Pad 4 (Note 4): Toggle Melody Mute/Unmute
-- Pad 5 (Note 5): Randomize Drums Instrument
-- Pad 6 (Note 6): Randomize Chords Instrument
-- Pad 7 (Note 7): Randomize Bass Instrument
-- Pad 8 (Note 8): Randomize Lead/Melody Instrument
-- Pad 9 (Note 9): Regenerate All Layers
-- Pad 10 (Note 10): Regenerate Drums Layer
-- Pad 11 (Note 11): Regenerate Chords Layer
-- Pad 12 (Note 12): Regenerate Bass Layer
-- Pad 13 (Note 13): Regenerate Melody Layer
-- Pad 14 (Note 14): Pitch Transpose Down
-- Pad 15 (Note 15): Pitch Transpose Reset
-- Pad 16 (Note 16): Pitch Transpose Up
+Source of truth: CC_MAP, PAD_MAP and CC_BUTTON_MAP at the top of src/midi/midi.js.
+Edit those to change the mapping; the dashboard picks up changes on refresh.
+The "Last MIDI" line under the dashboard header shows what each press did.
 
-## Pad Bank 2 (Notes 21-36)
-- Pad 1-16 (Notes 21-36): Triggers assigned audience sample one-shots
+The controller has two pad modes: one sends notes 1-16, the other notes 21-36.
 
-## Encoders Bank 1 (CC 1-8)
-- Encoder 1 (CC 1): Master Gain
-- Encoder 2 (CC 2): Speed (Playback Rate)
-- Encoder 3 (CC 3): CPM (Tempo)
-- Encoder 4 (CC 4): Transpose
-- Encoder 5 (CC 5): Drums Layer Gain
-- Encoder 6 (CC 6): Chords Layer Gain
-- Encoder 7 (CC 7): Bass Layer Gain
-- Encoder 8 (CC 8): Melody Layer Gain
+## Pads, notes 21-36 (the pad banks): physical pads 1-16
+- Pads 1-15 (notes 21-35): play pad 1-15 of the active pad bank
+  (Lines / Effects one-shots, or Notes / Sample Notes chord notes;
+  in the Notes banks pad 14 picks the chord and pad 15 changes the instrument or sample)
+- Pad 16 (note 36): switch to the next pad bank that is turned on
 
-## Encoders Bank 2 (CC 9-16)
-- Encoder 1 (CC 9): Drums Room Effect
-- Encoder 2 (CC 10): Chords Room Effect
-- Encoder 3 (CC 11): Bass Room Effect
-- Encoder 4 (CC 12): Melody Room Effect
-- Encoder 5 (CC 13): Drums Low-Pass Filter (LPF)
-- Encoder 6 (CC 14): Chords Low-Pass Filter (LPF)
-- Encoder 7 (CC 15): Bass Low-Pass Filter (LPF)
-- Encoder 8 (CC 16): Melody Low-Pass Filter (LPF)
+## Pads, notes 1-16
+- Pad 1 (note 1): mute/unmute Drums
+- Pad 2 (note 2): mute/unmute Chords
+- Pad 3 (note 3): mute/unmute Bass
+- Pad 4 (note 4): mute/unmute Melody
+- Pad 5 (note 5): random Drums instrument
+- Pad 6 (note 6): random Chords instrument
+- Pad 7 (note 7): random Bass instrument
+- Pad 8 (note 8): random Lead/Melody instrument
+- Pad 9 (note 9): Regenerate all
+- Pad 10 (note 10): New drums
+- Pad 11 (note 11): New chords
+- Pad 12 (note 12): New bass
+- Pad 13 (note 13): New melody
+- Pads 14-16 (notes 14-16): do nothing at the moment (they were global transpose
+  down / reset / up, which was replaced by per-track Pitch controls)
 
-## Transport / Direction Buttons (CC 25-29)
-- Left Button (CC 25): Pitch Transpose Down
-- Right Button (CC 26): Pitch Transpose Up
-- Play Button (CC 27): Start Transport (Play)
-- Pause Button (CC 28): Stop Transport (Pause)
-- Record Button (CC 29): Toggle Sample Record
+## Knobs (encoders), first set: CC 1-8
+- CC 1: Music volume (generated music only)
+- CC 2: Speed
+- CC 3: CPM (tempo)
+- CC 4: not mapped
+- CC 5: Drums volume
+- CC 6: Chords volume
+- CC 7: Bass volume
+- CC 8: Melody volume
+
+## Knobs (encoders), second set: CC 9-16
+- CC 9: Drums reverb (room)
+- CC 10: Chords reverb (room)
+- CC 11: Bass reverb (room)
+- CC 12: Melody reverb (room)
+- CC 13: Drums low-pass filter
+- CC 14: Chords low-pass filter
+- CC 15: Bass low-pass filter
+- CC 16: Melody low-pass filter
+
+## Transport buttons
+- Play (CC 27): Start
+- Pause (CC 28): Stop
+- Record (CC 29): start / stop a sample recording
+- Left / Right (CC 25 / 26): not mapped
+
+## Host Messages page
+While the Host Messages page (host.html) is started, it takes over ALL pads in both
+note ranges: any pad plays the next message, pad 13 goes back, pad 16 skips forward.
+The dashboard ignores pad presses until you press Stop there. Knobs and transport
+buttons keep working on the dashboard.
+
+## Pad and MIDI volume
+Pad sounds you play (MIDI or on-screen) use the dashboard's "MIDI pads" volume slider.
 
 ####################################################
+# HISTORY
 
-## PREVIOUS Pad Bank 2 settings (Notes 21-36)
+## PREVIOUS pad layout for notes 21-36 (before the pad banks)
 - Pad 1 (Note 21): Reset All Effects
 - Pad 2 (Note 22): Reset Drums Effects
 - Pad 3 (Note 23): Reset Chords Effects
@@ -65,3 +82,8 @@
 - Pad 12 (Note 32): Start Sample Recording
 - Pad 13 (Note 33): Stop Sample Recording
 - Pad 14-16 (Notes 34-36): Unassigned
+
+## PREVIOUS transpose controls (removed)
+- Encoder CC 4: Transpose
+- Notes 14 / 15 / 16: Transpose Down / Reset / Up
+- Left / Right buttons (CC 25 / 26): Transpose Down / Up
