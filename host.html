@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Plays the recorded host messages in order from the MIDI pads." />
+    <title>Strudel — Host Messages</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body class="host-page">
+    <div class="portal-container host">
+      <header class="portal-header compact">
+        <div class="portal-title-block">
+          <span class="portal-pill-badge">HOST MESSAGES</span>
+          <h1 class="portal-main-heading">Host Messages</h1>
+          <span class="host-status" id="host-status">Stopped</span>
+        </div>
+        <div class="portal-header-actions">
+          <span class="host-midi-status" id="host-midi-status">MIDI: not started</span>
+          <button type="button" id="host-start-btn" class="host-start-btn">▶ Start</button>
+        </div>
+      </header>
+
+      <div class="host-now-next">
+        <div class="host-card host-now" id="host-now-card">
+          <div class="host-card-label">Now playing</div>
+          <div class="host-card-number" id="host-now-number">—</div>
+          <div class="host-card-name" id="host-now-name">Nothing playing</div>
+        </div>
+        <div class="host-card host-next">
+          <div class="host-card-label">Next up</div>
+          <div class="host-card-number" id="host-next-number">—</div>
+          <div class="host-card-name" id="host-next-name">Press Start</div>
+        </div>
+      </div>
+
+      <div class="host-controls">
+        <button type="button" id="host-back-btn" title="Same as pad 13: stop and play the previous message" disabled>◀ Back <small>(pad 13)</small></button>
+        <button type="button" id="host-play-btn" title="Same as any other pad: play the next message if nothing is playing" disabled>▶ Play next <small>(other pads)</small></button>
+        <button type="button" id="host-forward-btn" title="Same as pad 16: stop and play the next message" disabled>Skip ▶▶ <small>(pad 16)</small></button>
+        <button type="button" id="host-reset-btn" title="Make message 1 next up" disabled>↺ Back to #1</button>
+        <label class="host-volume">
+          Volume
+          <input type="range" id="host-volume" min="0" max="1" step="0.01" value="1" />
+        </label>
+      </div>
+
+      <p class="host-hint" id="host-hint">
+        Pads: any pad plays the next message when nothing is playing. While one plays, only pad 13 (back) and pad 16 (skip) work.
+        Messages come from <code>public/host-messages</code>, in filename-number order.
+      </p>
+
+      <ol class="host-list" id="host-list"></ol>
+    </div>
+
+    <script type="module" src="/host.js"></script>
+  </body>
+</html>

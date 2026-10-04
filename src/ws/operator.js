@@ -3,12 +3,12 @@
  * and managing lock states in the Strudel Dashboard.
  */
 
-import { MSG, ACTIONS, ACTION_LABELS } from './protocol.js';
+import { MSG } from './protocol.js';
 
 let ws = null;
 let reconnectTimeout = null;
 
-export function initOperatorWS({ onAction, onStatus, onLockUpdate, onOpen }) {
+export function initOperatorWS({ onAction, onStatus, onAccessUpdate, onOpen }) {
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
   const url = `${protocol}//${location.host}/ws?role=operator`;
 
@@ -49,8 +49,8 @@ export function initOperatorWS({ onAction, onStatus, onLockUpdate, onOpen }) {
         onAction(msg.action, msg.timestamp);
       } else if (msg.type === MSG.STATUS && onStatus) {
         onStatus({ connected: true, audienceCount: msg.audienceCount || 0 });
-      } else if (msg.type === MSG.LOCK_UPDATE && onLockUpdate) {
-        onLockUpdate(new Set(msg.locked || []));
+      } else if (msg.type === MSG.ACCESS_UPDATE && onAccessUpdate) {
+        onAccessUpdate(msg.access);
       }
     };
   }
@@ -63,9 +63,10 @@ export function initOperatorWS({ onAction, onStatus, onLockUpdate, onOpen }) {
   connect();
 
   return {
-    toggleLock: (action) => {
+    /** @param {{ all?: boolean, music?: boolean }} access */
+    setAccess: (access) => {
       if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: MSG.TOGGLE_LOCK, action }));
+        ws.send(JSON.stringify({ type: MSG.SET_ACCESS, access }));
       }
     },
     syncPads: ({ padLabels, padKinds, bankTitle }) => {

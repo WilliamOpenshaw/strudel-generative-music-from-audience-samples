@@ -13,6 +13,12 @@ import { state } from '../state.js';
 let mediaRecorder = null;
 let audioChunks = [];
 let recordStream = null;
+let onSampleRecordedCallback = null;
+
+/** Called with { layer, filename } after a new recording is saved and registered. */
+export function setOnSampleRecorded(fn) {
+  onSampleRecordedCallback = fn;
+}
 
 /**
  * Query available audio input devices and update the microphone name readout.
@@ -147,6 +153,7 @@ export function initSampleRecorder() {
               // Select the new file in the editor
               if (data.filename) {
                 await selectFile(data.filename);
+                await onSampleRecordedCallback?.({ layer, filename: data.filename });
               }
             } else {
               throw new Error(`Server returned ${res.status}`);

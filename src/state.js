@@ -1,7 +1,9 @@
 /** Shared performance state — dashboard writes, Strudel patterns read. */
 export const state = {
   cpm: 120,
-  gain: 0.8,
+  gain: 0.8, // generated music only
+  performerPadGain: 1.0, // pads from the MIDI controller and on-screen clicks
+  audiencePadGain: 1.0, // pads pressed on audience phones
   speed: 1.0,
   transpose: 0,
   drumsOn: true,
@@ -39,10 +41,13 @@ export const state = {
   bassOctave: 0,
   drumsOctave: 0,
 
-  // Active Pad Bank: 1-2 sample one-shots, 3 chord notes (instrument), 4 chord notes (recorded sample)
+  // Active Pad Bank: 1 Lines, 2 Effects (sample one-shots), 3 Notes (chord notes, instrument), 4 Sample Notes (chord notes, recorded sample)
   activePadBank: 1,
-  notePadInstrument: 'gm_piano',
+  // Banks pad 16 cycles through; at least one stays on. Persisted per browser by the dashboard.
+  enabledPadBanks: [1, 2, 3, 4],
+  notePadInstrument: 'gm_epiano1', // gm_piano starts too slowly on first use
   notePadSample: '',
+  notePadChord: null, // null = Auto: Notes/Sample Notes pads follow the playing chord
 
   // Pad Bank assignments (Pads 1-15 -> sample key) for two banks
   padBanks: {

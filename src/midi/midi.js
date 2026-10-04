@@ -2,6 +2,8 @@
  * Web MIDI integration for M-VAVE SMC-PAD (or any standard MIDI controller)
  */
 
+import { arePadsClaimed, watchPadClaim } from './hostClaim.js';
+
 // If you don't know the CC numbers, watch the browser console while twisting a knob.
 // Then update these numbers to match your hardware.
 const CC_MAP = {
@@ -118,14 +120,16 @@ export async function initMIDI({ getState, onParameterChange, onAction, onStatus
         names.push(input.name);
       }
 
+      const hostNote = arePadsClaimed() ? ' · pads → Host Messages' : '';
       if (names.length > 0) {
-        onStatusUpdate(`MIDI: ${names.length} device(s) connected`, names.join('\n'));
+        onStatusUpdate(`MIDI: ${names.length} device(s) connected${hostNote}`, names.join('\n'));
       } else {
-        onStatusUpdate('MIDI: No devices found', '');
+        onStatusUpdate(`MIDI: No devices found${hostNote}`, '');
       }
     };
 
     refresh();
+    watchPadClaim(refresh);
 
     midiAccess.onstatechange = (e) => {
       if (e.port.type !== 'input') return;
@@ -159,6 +163,11 @@ function handleMIDIMessage(message, getState, onParameterChange, onAction, onRaw
 
   // Note On (command 9)
   if (command === 9 && data2 > 0) {
+    // The Host Messages page owns the pads while it's started; knobs and buttons stay here.
+    if (arePadsClaimed()) {
+      onRawMessage?.(`Pad Note ${data1} → Host Messages`);
+      return;
+    }
     const noteNumber = data1;
     if (PAD_MAP[noteNumber]) {
       const actionStr = PAD_MAP[noteNumber];
