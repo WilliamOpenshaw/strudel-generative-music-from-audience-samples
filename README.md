@@ -1,6 +1,17 @@
 # Strudel Generative Music from Audience Samples
 
-An interactive, algorithmic music generator built with [Strudel](https://strudel.cc). Uses generative JavaScript functions and audience-submitted samples to build dynamic chords, melodies, basslines, and beats for live interactive performances.
+An interactive, algorithmic music generator built with [Strudel](https://strudel.cc) for live performances. It generates chords, melodies, basslines and beats, and lets the audience shape the music from their phones and record their own voices as instruments and pad sounds. Performers play along on MIDI pad controllers (M-VAVE SMC-PAD).
+
+The project runs as a small local web server with four pages:
+
+| Page | Address | Who uses it |
+|------|---------|-------------|
+| **Dashboard** | `http://localhost:3000/` | The operator: music, recordings, pads, audience settings |
+| **Audience page** | `http://<your-ip>:3000/audience.html` | Audience phones, over the venue Wi-Fi |
+| **Pad display** | `http://localhost:3000/pads.html` | A read-only view of the pads for a second screen |
+| **Host Messages** | `http://localhost:3000/host.html` | Plays recorded host announcements from the MIDI pads |
+
+See [CHANGELOG.md](CHANGELOG.md) for what has changed and when.
 
 ---
 
@@ -23,6 +34,8 @@ Before you can run this project, you need **Node.js** installed on your computer
 > **What is a terminal?**
 > - **Windows**: Press `Win + R`, type `cmd`, and hit Enter. Or search for "PowerShell" in the Start menu. If you're using VS Code, press `` Ctrl + ` `` to open the built-in terminal.
 > - **Mac**: Open the "Terminal" app (search for it in Spotlight with `Cmd + Space`).
+
+Use **Chrome** or **Edge**. They support Web MIDI and have the most reliable Web Audio.
 
 ---
 
@@ -48,7 +61,7 @@ Run this command inside the project folder:
 npm install
 ```
 
-This reads the `package.json` file and downloads everything the project needs (Strudel, Vite, etc.) into a `node_modules` folder. It may take a minute or two on the first run. You'll see some progress output — wait until it finishes and you see your terminal prompt again.
+This reads the `package.json` file and downloads everything the project needs (Strudel, Vite, etc.) into a `node_modules` folder. It may take a minute or two on the first run.
 
 > **You only need to run `npm install` once**, unless you delete the `node_modules` folder or the project's dependencies change.
 
@@ -71,61 +84,63 @@ You should see output like this:
     ➜  Mode:      development
 ```
 
-### Step 3: Open the dashboard in your browser
+Then open **http://localhost:3000** in Chrome or Edge.
 
-Open your web browser (Chrome or Edge recommended) and go to:
+> **Important**:
+> - Keep the terminal window open while you're using the dashboard. Closing it shuts down the server.
+> - Run only **one** copy of the server. A second copy fails with "port already in use" (see Troubleshooting).
+> - Open only **one dashboard window**. Each dashboard window runs its own music engine. Use the pad display and Host Messages pages for other screens.
+> - After changes to `server.js`, restart the server (Ctrl + C, then `npm run dev`). Changes to the pages only need a browser refresh.
 
-```
-http://localhost:3000
-```
+---
 
-You should see the **Strudel Dashboard** — a dark-themed control panel with sliders, buttons, and readouts.
+## Show-Day Checklist
 
-> **Important**: Keep the terminal window open while you're using the dashboard. Closing it will shut down the local server and the page will stop working.
+1. Start the server with `npm run dev`, and open the dashboard in **one** Chrome/Edge window. If the MIDI badge says "Access Denied", click the lock icon in the address bar, allow MIDI, and reload.
+2. **Open the dashboard a few minutes early and press ▶ Start once**, so instruments and samples have downloaded before the show.
+3. **Top of the show:** open **🎙️ Host Messages ↗**, press **▶ Start**, and play the announcements from the pads. Press **■ Stop** afterwards, so the pads go back to the dashboard.
+4. **Second screen:** in the **🎹 Sample Pad Assignments** tab, click **↗ Open in Separate Window**, drag it to the other screen, and click **⛶ Fullscreen**.
+5. **Audience:** project the **📡 Audience Portal & Wi-Fi** tab, which shows the Wi-Fi details and a QR code to join. Use the **Audience controls** and **Music controls** switches to pause the audience whenever you need to.
+6. In **Pad Banks**, untick any banks you don't want pad 16 to cycle through.
 
 ---
 
 ## Using the Dashboard
 
-Here's what each part of the dashboard does:
+### Tabs
 
-### Transport Controls
+| Tab | Shortcut | What's on it |
+|-----|----------|-------------|
+| **🎛️ Performance Dashboard** | Ctrl + 1 | All the music, recording and pad controls |
+| **🎹 Sample Pad Assignments** | Ctrl + 2 | Large view of the 16 pads in the active bank, clickable (also available as a pop-out) |
+| **📡 Audience Portal & Wi-Fi** | Ctrl + 3 | A projector page with the Wi-Fi name and password and a QR code for the audience page |
+
+### Transport
 
 | Button | What it does |
 |--------|-------------|
-| **▶ Start** | Initializes the Strudel audio engine and begins playing the generative arrangement. The first click may take a few seconds while it loads audio samples from the internet. |
+| **▶ Start** | Starts the Strudel audio engine and plays the generative arrangement. The first start can take a few seconds while instruments load. |
 | **■ Stop** | Stops all audio playback immediately. |
+| **🔊 Test Tone / 🎵 Test Strudel** | Quick checks that the computer's audio and Strudel are working. |
 
-> **Note**: Your browser requires a user gesture (clicking a button) before it will allow audio to play. This is why you must click "Start" — audio can't auto-play.
+> **Note**: Browsers only allow audio after a click, which is why you must click Start. Audio can't auto-play.
 
-### Sliders
+### Volume and Tempo
 
 | Slider | Range | What it controls |
 |--------|-------|-----------------|
-| **Music** | 0.00 – 1.00 | Volume of the generated music (all four tracks). 0 = silent, 1 = full volume. Default is 0.80. |
-| **MIDI pads** | 0.00 – 1.00 | Volume of pads you play yourself, on the MIDI controller or by clicking pads on screen, in every bank. Default is 1.00. |
-| **Audience pads** | 0.00 – 1.00 | Volume of pads played from audience phones, in every bank. 0 mutes them. Default is 1.00. |
-| **Speed** | 0.25 – 2.00 | Playback speed multiplier. 1.00 = normal. Lower = slower, higher = faster. |
-| **CPM** | 60 – 180 | Cycles Per Minute — essentially the tempo. Higher = faster. Default is 120. |
+| **Music** | 0.00 – 1.00 | Volume of the generated music (all four tracks). Default 0.80. |
+| **MIDI pads** | 0.00 – 1.00 | Volume of pads you play yourself, on the MIDI controller or by clicking pads on screen, in every bank. Default 1.00. |
+| **Audience pads** | 0.00 – 1.00 | Volume of pads played from audience phones, in every bank. 0 mutes them. Default 1.00. |
+| **Speed** | 0.25 – 2.00 | Playback speed multiplier. 1.00 = normal. |
+| **CPM** | 60 – 180 | Cycles per minute: the tempo. Default 120. |
+| **Time Sig** | 2/4 … 12/8 | Time signature. Changing it regenerates the arrangement. |
 
-Drag any slider and the audio updates in real time (the pattern restarts with the new value).
-
-### Transpose
-
-Press the **−** and **+** buttons to shift all pitched layers (chords, bass, melody) down or up by one semitone. You can also use the keyboard shortcut **Ctrl + ↑** / **Ctrl + ↓**.
+Moving Music, Speed or CPM updates the music straight away (the pattern restarts with the new value). The pad volumes apply to the next pad press, without restarting anything.
 
 ### Layer Toggles
 
-Four buttons that mute or unmute individual layers of the arrangement:
-
-| Button | Layer | Description |
-|--------|-------|-------------|
-| **Drums** | Drum pattern | Kick, snare, and hi-hat loop |
-| **Chords** | Chord pads | Randomly generated chord progression |
-| **Bass** | Bassline | Random melodic line in C minor (low register) |
-| **Melody** | Lead melody | Random melodic line in C minor (high register) |
-
-When a layer is **on**, the button is highlighted blue. When **off**, it's dimmed. Click to toggle.
+Four buttons mute or unmute each track: **Drums**, **Chords**, **Bass** and **Melody** (lead). The key and scale are chosen in Generative Settings and change when you Regenerate all.
 
 ### Regenerate Buttons
 
@@ -133,76 +148,136 @@ These re-roll the random musical content **without stopping playback**:
 
 | Button | What it does |
 |--------|-------------|
-| **↻ Regenerate all** | Re-rolls everything: chords, melody, bass, drums, instruments (any, built-in or recorded), time signature, scale, and densities |
+| **↻ Regenerate all** | Re-rolls everything: chords, melody, bass, drums, instruments (any, built-in or recorded), time signature, scale, chord style and densities |
 | **🎙️ Regenerate all (recordings)** | Same, but chords, melody and bass each get a different renamed recording (default-named takes are skipped), and drums get a built-in kit |
 | **🎹 Regenerate all (built-in)** | Same, but every track gets a built-in instrument, with no recordings |
 | **🗣️ Regenerate all (Lines)** | Same, but chords, melody and bass use recordings from the **Lines** pad bank; drums get a built-in kit |
 | **💥 Regenerate all (Effects)** | Same, but **all four tracks, drums included,** use recordings from the **Effects** pad bank (vocal sound effects double as percussion) |
 | **New chords** | Only re-rolls the chord progression |
-| **New melody** | Only re-rolls the lead melody |
-| **New bass** | Only re-rolls the bassline |
-| **New drums** | Only re-rolls the drum pattern |
+| **New melody** | Only re-rolls the lead melody (and its octave range and density) |
+| **New bass** | Only re-rolls the bassline (and its octave range and density) |
+| **New drums** | Only re-rolls the drum pattern (and its density) |
 
-Whenever a regenerate button picks a random density, melody and bass get 4, 8 or 16, and drums get 4 or 8. The manual density buttons can still set any value up to 128.
+Whenever a regenerate button picks a random density, melody and bass get 4, 8 or 16, and drums get 4 or 8. These keep the tracks in time with each other.
 
-### Live Readouts
+### Generative Settings
 
-The bottom panel shows the current state of the engine, updated once per second:
+- **Chord style:** Sustained / Pad, Arp Up, Arp Pendulum, or Rhythmic Stabs.
+- **Progression length:** 4 or 6 chords, or random.
+- **Scale / mode:** Minor, Major, Dorian or Mixolydian. This sets the chords available, and the chords Pad 14 can pick in the Notes banks.
+- **Octave range** (melody and bass): 1, 3 or 5 octaves of notes to choose from.
+- **Note density** (melody, bass, drums): ÷2, −, +, ×2. Density is how many notes fit in each two-bar loop, up to 128. Powers of two (4, 8, 16, 32…) stay on the beat.
 
-- **CPM** — Current tempo
-- **Speed** — Current speed multiplier
-- **Layers** — Which layers are on/off
-- **Current chord** — The chord symbols in the current progression
-- **Last note** — The last note triggered by the engine
+### Track Pitch
 
-### Status Badge
+Each track has its own **STEP − / +** (moves the track 2 semitones) and **OCT − / +** (moves it an octave), plus **↺** to reset. There's no longer a global transpose.
 
-The status indicator at the top changes color:
-- **Grey** — Stopped (no audio playing)
-- **Amber** — Loading (initializing the audio engine)
-- **Green** — Playing (audio is active)
-- **Red** — Error (something went wrong — check the browser console)
+### Per-Track Gains and Effects
 
-## MIDI Control
+Each track has a volume slider, plus pan, delay, low-pass and high-pass filters, room (reverb), distortion, and attack / decay / sustain / release. The reset buttons put a track's effects back to their defaults.
 
-The dashboard automatically detects connected Web MIDI devices (like the M-VAVE SMC-PAD) when you open the page. A status indicator in the top right will show you how many devices are connected.
+### Instruments
 
-### Customizing MIDI Mapping
-Since MIDI controllers send different Control Change (CC) and Note numbers, you may need to map your specific controller to the dashboard parameters.
+Each track has an instrument dropdown:
+- **🎲** picks a random instrument from the list, which includes built-in sounds and recordings.
+- **🎙️** picks a random recording.
 
-1. Connect your controller and open the dashboard.
-2. Open your browser's Developer Console (press `F12` and click **Console**).
-3. Twist a knob or press a pad. You will see a log like: `[MIDI] Unmapped CC: 1 (Value: 64)` or `[MIDI] Unmapped Note On: 36`.
-4. Open `src/midi/midi.js` in your code editor.
-5. Update the `CC_MAP` and `PAD_MAP` objects at the top of the file using the numbers you saw in the console. The changes will hot-reload instantly.
+The built-in lists only contain instruments that start quickly. 117 instruments that were silent or slow to load were removed; see `removed instruments.txt`. The drum kit list hasn't been checked that way yet.
+
+### Live Code Editor and Piano Roll
+
+The right-hand panel shows the Strudel code the dashboard is playing, and a scrolling piano roll. You can edit the code and press **Ctrl + Enter** to hear your change. The next dashboard change (a slider, a regenerate button…) replaces it with freshly generated code.
+
+### Readouts and Status
+
+The readout panel shows the tempo, speed, which layers are on, the current chord progression, the key/scale, the last note, and each track's instrument. The status badge at the top is grey when stopped, amber while loading, green when playing, and red on an error (check the browser console with F12). The MIDI badge shows how many controllers are connected; hover over it for their names.
 
 ---
 
-## Audience Phone Dashboard
+## Pad Banks
 
-The dashboard includes a built-in realtime bridge that allows audience members to connect to the session from their mobile phones and influence the live music. 
+The 16 pads (on screen, on the MIDI controller and on audience phones) work in four banks. **Pad 16 always switches to the next bank.**
+
+| Bank | Pads 1–15 | Pad 14 | Pad 15 |
+|------|-----------|--------|--------|
+| **Lines** | Recorded one-shots (spoken lines) | a one-shot | a one-shot |
+| **Effects** | Recorded one-shots (sound effects) | a one-shot | a one-shot |
+| **Notes** | Pads 1–13 play the notes of the current chord, low to high, on a melody instrument | Picks the chord | Random melody instrument |
+| **Sample Notes** | Pads 1–13 play the same chord notes on a recording, pitched and sped up or slowed down | Picks the chord | Next recording |
+
+- **Lines and Effects on startup:** each bank fills with the newest renamed recordings of its own type, and any space left is filled with other renamed recordings. Default-named takes (like `audience_lines_1791023326331`) are skipped as likely failed attempts. You can reassign any pad from the dropdowns in the dashboard's pad panel.
+- **New recordings:** recording as **Lines** or **Effects** puts the take straight onto pad 1 of that bank. The others move down one, and pad 15's drops off. Rename a take to keep it after a reload.
+- **Pad 14 (chord):** each press steps through **Auto** (follow the chord the music is playing) and then each chord in the current key. A chosen chord shows as "(chosen)" in the bank title. Both Notes banks share the choice.
+- **Turning banks on and off:** untick a bank's checkbox in the pad panel and pad 16 skips it. At least one bank always stays on. The choice is remembered in that browser.
+- **Volume:** set with the **MIDI pads** and **Audience pads** sliders.
+
+---
+
+## Recording Audience Samples
+
+In the **Sample Recording** panel, pick what you're recording, then press **🔴 Record** and **⏹ Stop**. The browser asks for microphone permission the first time.
+
+| Type | Use it for | Where it goes |
+|------|-----------|---------------|
+| **Lead / Bass / Chords / Drums** | Sounds meant for a track's instrument | Available as an instrument for any track |
+| **Lines** | Spoken lines from the audience | Straight onto pad 1 of the **Lines** pad bank |
+| **Effects** | Verbal sound effects from the audience | Straight onto pad 1 of the **Effects** pad bank |
+
+The new recording opens in **Edit Sample**, where you can:
+- **◀ / ▶** browse all recordings, or pick one from the list.
+- **Trim** the start and end, add fades, shape it with attack / decay / sustain / release, normalize it, and **tune it to C**, then **💾 Apply & Save**.
+- **✏️ Rename** it. Renamed recordings are treated as "keepers": they're the ones auto-assigned to pads and used by the recordings regenerate buttons.
+- **🗑️ Delete** it. This asks for confirmation and can't be undone. It removes the file, takes it off any pads (the rest close the gap), and switches any track using it back to that track's default instrument.
+
+**Where recordings are stored:** recordings are saved as files in `public/samples/`, and the server keeps the catalog `public/strudel.json` up to date automatically. Don't edit or regenerate that catalog by hand. In particular, don't run `npx @strudel/sampler …`: it rewrites the catalog and forgets which recordings are Lines, Effects and so on. Add recordings through the dashboard. More detail is in `audience sampling instructions.txt`.
+
+---
+
+## MIDI Control
+
+The dashboard detects connected Web MIDI controllers (like the M-VAVE SMC-PAD) automatically. The **Last MIDI** line under the header shows what each pad or knob press did.
+
+Default mapping (full details in `midi-controls-mapping.txt`):
+
+| Control | What it does |
+|---------|-------------|
+| Pads, notes 21–36 | Pads 1–16 of the active pad bank (pad 16 switches bank) |
+| Pads, notes 1–13 | Mute tracks, random instruments, regenerate (see the mapping file) |
+| Knobs CC 1–3 | Music volume, speed, tempo |
+| Knobs CC 5–8 | Drums / chords / bass / melody volume |
+| Knobs CC 9–16 | Reverb and low-pass filter per track |
+| Buttons CC 27 / 28 / 29 | Start / stop / record |
+
+**Customizing:** twist a knob and watch the browser console (F12) for `[MIDI] Unmapped CC: …`, or press a pad and read the **Last MIDI** line. Then edit `CC_MAP` / `PAD_MAP` at the top of `src/midi/midi.js`. The page updates instantly.
+
+While the **Host Messages** page is started, it takes over the pads. The dashboard then ignores pad presses (its MIDI badge shows "pads → Host Messages"), but the knobs keep working.
+
+---
+
+## Audience Phone Page
+
+Audience members connect from their phones and influence the music live.
 
 ### How to Connect the Audience
-1. **Find your local network IP address:**
-   The dashboard fetches this for you automatically (via `/api/network-info`) and renders a scannable QR code in the **Audience Controls** panel — no need to read it off the terminal. If you want it manually, your machine's IP will look like `192.168.1.50`.
-2. **Share the link:**
-   Point audience phones at the QR code, or give them the URL directly (using your actual IP address):
-   `http://192.168.1.50:3000/audience.html`
-   The dashboard's QR panel can also switch to a "Join Wi-Fi" QR code so phones connect to your network first.
-3. **Network Requirements:**
-   For this to work locally without any extra configuration, the audience members must be connected to the **same Wi-Fi network** as the host computer. If you want people on cellular data or outside the venue to connect, you will need to host the project on a public server or use a tool like Ngrok to expose your local server to the public internet.
+1. **Wi-Fi:** phones must be on the **same Wi-Fi network** as the computer running the server.
+2. **Project the Audience Portal tab** (Ctrl + 3). Enter the Wi-Fi name and password once; they're remembered in that browser. The QR code switches between "join the Wi-Fi" and "open the audience page".
+3. **Or share the link directly:** `http://<your-ip>:3000/audience.html`, for example `http://192.168.1.50:3000/audience.html`. The dashboard finds your IP for you (via `/api/network-info`).
+
+For people outside the venue network, you'd need to host the project publicly or use a tunnel such as ngrok.
 
 ### What the Audience Can Do
-The phone page has pages of rate-limited buttons:
+The phone page has pages of buttons:
 - **Music controls** (the first pages) change the generated music: more energy / calmer, new chords, a random change ("Weird"), faster / slower, octave up / down, new melody / bass / drums, regenerate all, and delay / reverb up / down.
-- **Pads** (the last pages) play whatever is on the dashboard's active pad bank.
+- **Pads** (the last pages) play pads 1–15 of the dashboard's active bank, at the **Audience pads** volume. Empty pads are greyed out.
+
+Each phone can act once every **5 seconds**: the button panel tints red while it waits and green when it's ready.
 
 ### Operator Guardrails
 The **Audience Control** panel at the top of the dashboard shows how many phones are connected and the latest audience action, and has two switches:
 - **Audience controls:** turns every audience control on or off. When it's off, phones show a "paused" message.
 - **Music controls:** turns off just the buttons that change the generated music. Phones then show only the pads.
 
-The server enforces both switches, so a phone with an old page open can't get around them. They take effect on every phone immediately, and the dashboard shows the current state even after a reload. Built-in rate limiting stops any one phone from spamming (max 1 action per 5 seconds per phone).
+The server enforces both switches, so a phone with an old page open can't get around them. The dashboard shows the current state even after a reload.
 
 ---
 
@@ -220,9 +295,9 @@ A separate page plays your recorded host announcements, in order, from the MIDI 
 | **Pad 13** (or ◀ Back) | Works any time: stops the current message and plays the previous one (to replay a message, press 13 then 16). |
 | **↺ Back to #1** / clicking a message in the list | Sets which message is "next up", without playing it. |
 
-The page shows the number and file name of the message playing now and of the one up next.
+The page shows the number and file name of the message playing now and of the one up next, and has its own volume slider. A file that can't be played is marked ⚠️ and skipped.
 
-While the Host Messages page is started, it **takes over the MIDI pads**: the dashboard ignores pad presses (its MIDI badge shows "pads → Host Messages"), so a pad doesn't also trigger a dashboard sound. The controller's knobs keep working on the dashboard. Press **■ Stop** to hand the pads back. If the window is closed without Stop, the dashboard takes them back within a few seconds. Both pages must be open in the same browser.
+While the Host Messages page is started, it **takes over the MIDI pads**: the dashboard ignores pad presses, so a pad doesn't also trigger a dashboard sound. The controller's knobs keep working on the dashboard. Press **■ Stop** to hand the pads back. If the window is closed without Stop, the dashboard takes them back within a few seconds. Both pages must be open in the same browser.
 
 After adding or renaming message files, press Stop and then Start to reload them.
 
@@ -235,92 +310,52 @@ You can show the **Sample Pad Assignments** view in its own window, for example 
 1. In the dashboard, open the **🎹 Sample Pad Assignments** tab and click **↗ Open in Separate Window**. Or open `http://localhost:3000/pads.html` directly.
 2. Drag that window to the other screen and click **⛶ Fullscreen**.
 
-The pad display is a live, read-only mirror of the dashboard. It updates when you switch banks, reassign pads, change the Notes instrument or Sample Notes sample, or when the playing chord changes. It makes no sound itself, so audio always comes from the dashboard window. Keep exactly one dashboard window open: each dashboard window runs its own separate music engine.
+The pad display is a live, read-only mirror of the dashboard. It updates when you switch banks, reassign pads, change the Notes instrument or Sample Notes sample, or when the playing chord changes. It always fits all 16 pads to the window, with no scrolling. It makes no sound itself, so audio always comes from the dashboard window.
 
 ---
 
-## Stopping the Dev Server
+## Stopping the Server
 
-When you're done, go back to the terminal where `npm run dev` is running and press **Ctrl + C** to stop the server.
+When you're done, go back to the terminal where `npm run dev` is running and press **Ctrl + C**.
 
 ---
 
 ## Troubleshooting
 
 ### No sound after clicking Start
-- Make sure your system volume is turned up and your browser tab isn't muted (look for a speaker icon on the browser tab).
-- Try using **Chrome** or **Edge**. Firefox has less reliable Web Audio support.
-- Check the browser console for errors: press **F12** → click the **Console** tab.
+- Make sure your system volume is up and the browser tab isn't muted.
+- Use **Chrome** or **Edge**, and try **🔊 Test Tone**.
+- Check the browser console for errors: press **F12** → **Console**.
+
+### A track goes silent after choosing an instrument
+- Some built-in sounds download on first use. Give them a moment, or pick another. The slowest and silent ones have already been removed (see `removed instruments.txt`).
+- If a **recording** is silent on a track, refresh the dashboard so the recordings are reloaded.
+
+### "MIDI: Access Denied"
+Click the lock icon in the address bar, allow MIDI for `localhost:3000`, and reload.
+
+### `npm run dev` says the port is already in use (EADDRINUSE)
+Another copy of the server is still running, for example in another terminal or from a closed editor tab. Stop it there with Ctrl + C, or, in PowerShell:
+
+```powershell
+Stop-Process -Id (Get-NetTCPConnection -LocalPort 3000).OwningProcess -Force
+```
+
+You can also run on a different port: `$env:PORT=3001; npm run dev` (PowerShell) or `PORT=3001 npm run dev` (macOS/Linux). See `Process_Instructions.txt` for more ways to find stuck servers.
+
+### Delete, rename or Host Messages say the server is out of date
+The server was started before the latest code changes. Restart it (Ctrl + C, then `npm run dev`).
 
 ### `npm install` fails
-- Make sure you have Node.js installed (see Prerequisites above).
-- Make sure you're running the command **inside the project folder** (the folder that contains `package.json`).
-- Try deleting `node_modules` and `package-lock.json`, then running `npm install` again:
-  ```bash
-  rm -rf node_modules package-lock.json
-  npm install
-  ```
-  On Windows (PowerShell):
+- Make sure Node.js is installed (see Prerequisites) and you're inside the project folder (the one with `package.json`).
+- Delete `node_modules` and `package-lock.json`, then run `npm install` again. In PowerShell:
   ```powershell
   Remove-Item -Recurse -Force node_modules, package-lock.json
   npm install
   ```
 
-### `npm run dev` shows an error
-- Make sure you've run `npm install` first.
-- Make sure nothing else is using port 3000. If it is, either close the other process or start the server with a different port: `PORT=3001 npm run dev` (macOS/Linux) or `$env:PORT=3001; npm run dev` (Windows PowerShell).
-
 ### The page loads but looks broken
-- Hard-refresh the browser: **Ctrl + Shift + R** (Windows/Linux) or **Cmd + Shift + R** (Mac).
-- Make sure the dev server is still running in the terminal.
-
----
-
-## Recording Audience Samples in the Dashboard
-
-In the **Sample Recording** panel, pick what you're recording, then press **🔴 Record** and **⏹ Stop**:
-
-| Type | Use it for | Where it goes |
-|------|-----------|---------------|
-| **Lead / Bass / Chords / Drums** | Sounds meant for a track's instrument | Available as an instrument for any track |
-| **Lines** | Spoken lines from the audience | Straight onto pad 1 of the **Lines** pad bank (others move down one) |
-| **Effects** | Verbal sound effects from the audience | Straight onto pad 1 of the **Effects** pad bank (others move down one) |
-
-In **Edit Sample** you can preview, trim/tune and save, **rename**, or **🗑️ Delete** a recording. Deleting asks for confirmation and can't be undone. It removes the file, takes it off any pads (the rest close the gap), and switches any track using it back to that track's default instrument.
-
----
-
-## Adding Audience Samples
-
-You can replace the default synthesizers with custom audience recordings. 
-
-### 1. Folder Structure
-
-Place your recordings in the `public/samples/` directory, organized by role:
-
-- `public/samples/lead/` — Melodic lead recordings
-- `public/samples/bass/` — Bass recordings
-- `public/samples/chord/` — Chord stab recordings
-- `public/samples/drum/` — Percussion recordings (future)
-
-### 2. Naming Conventions
-
-Strudel supports pitch-shifting a single sample across notes. You can also provide multiple variations.
-
-- **Lead, Bass, and Chords:** Name files as numbered variations (`0.wav`, `1.wav`, `2.wav`, etc.).
-- **Drums:** Name files by their role (`kick.wav`, `snare.wav`, `hihat.wav`).
-
-Supported formats: `.wav` (recommended), `.mp3`, `.ogg`.
-
-### 3. Generate the Catalog
-
-After adding or renaming samples **by hand in the folder**, you must regenerate the sample catalog so the dashboard knows they exist. (Recordings made in the dashboard update the catalog automatically. Don't run this if you rely on them: it rewrites `public/strudel.json` and forgets which recordings are Lines, Effects, etc.) Run this from the project folder:
-
-```bash
-npx @strudel/sampler public/samples --json > public/strudel.json
-```
-
-Then refresh the dashboard. If a folder is empty, the dashboard will gracefully fall back to a synthesizer for that layer.
+Hard-refresh with **Ctrl + Shift + R**, and check that the server is still running.
 
 ---
 
@@ -328,45 +363,47 @@ Then refresh the dashboard. If a folder is empty, the dashboard will gracefully 
 
 | Path | Purpose |
 |------|---------|
-| `index.html` | The main HTML page that loads in the browser |
-| `style.css` | All visual styling (dark mode theme, layout, animations) |
-| `dashboard.js` | Operator dashboard — wires up controls to the Strudel engine |
-| `src/state.js` | Shared performance state (single source of truth for all parameters) |
-| `src/patterns/generative.js` | Generative arrangement engine — random chords, melodies, and basslines |
-| `strudel code/` | Original REPL-oriented generative scripts (reference material) |
-| `planning notes.txt` | Architecture notes + ordered feature roadmap (6 phases, 20 features) |
-| `General Idea.txt` | Project vision and goals |
-| `package.json` | Project config — lists dependencies and available npm scripts |
+| `server.js` | Express + WebSocket server: serves the pages, the audience/operator bridge, and endpoints for recordings and host messages |
+| `index.html`, `dashboard.js`, `style.css` | The operator dashboard |
+| `audience.html`, `audience.js`, `audience.css` | The audience phone page |
+| `pads.html`, `pads.js` | The pad display for a second screen |
+| `host.html`, `host.js` | The Host Messages page |
+| `src/state.js` | Shared performance state (tempo, volumes, effects, pad banks, …) |
+| `src/patterns/generative.js` | The generative engine: chords, melody, bass, drums → Strudel code |
+| `src/pads/` | Chord-note pad logic (`chordPads.js`) and the shared pad grid (`padGrid.js`) |
+| `src/samples/` | Recording, sample editor, pitch detection, catalog, recording types (`layers.js`) and engine registration |
+| `src/midi/` | MIDI mapping (`midi.js`) and the Host Messages pad hand-over (`hostClaim.js`) |
+| `src/ws/` | The WebSocket message protocol and the dashboard's connection |
+| `src/soundfonts/` | Built-in instrument lists and General MIDI soundfont setup |
+| `public/samples/`, `public/strudel.json` | Audience recordings and their catalog (managed by the server) |
+| `public/host-messages/` | Host announcement recordings |
+| `CHANGELOG.md` | What changed and when |
+| `CLAUDE.md` | Technical notes for AI coding assistants (and developers) |
+| `midi-controls-mapping.txt` | Full MIDI controller mapping |
+| `audience sampling instructions.txt` | Step-by-step recording guide |
+| `removed instruments.txt` | Built-in instruments removed for being silent or slow |
+| `list of strudel instrument samples.txt` | Every sound name Strudel knows (reference) |
+| `Process_Instructions.txt` | Finding and stopping stuck dev servers |
+| `docs/` | Strudel reference notes |
+| `planning notes.txt`, `design notes.txt`, `General Idea.txt`, `compositions/`, `strudel code/` | Early planning notes and scripts (historical reference) |
+| `.claude/launch.json` | Lets Claude Code start the dev server |
+| `dist/` | Production build output (`npm run build`) |
 
 ---
 
-## Roadmap
+## Roadmap History
 
-The full build order (20 features across 6 phases) is documented in `planning notes.txt`.
+The original build order (20 features across 6 phases) is in `planning notes.txt`. All six phases are complete; later work is listed in [CHANGELOG.md](CHANGELOG.md).
 
 | Phase | Focus | Status |
 |-------|-------|--------|
 | 1. Foundation | Vite + dashboard + shared state | ✅ Complete |
 | 2. Generative engine | Four-layer arrangement with controls | ✅ Complete |
 | 3. Audience samples | Load and map recordings to lead/bass/chords | ✅ Complete |
-| 4. MIDI | Two m-vave SMC-PAD controllers for improv players | ✅ Complete |
-| 5. Strudel REPL embed | Pianoroll + live coding alongside dashboard | ✅ Complete |
-| 6. Audience phone UI | ~4 mobile buttons with guardrails | ✅ Complete |
+| 4. MIDI | Two M-VAVE SMC-PAD controllers for improv players | ✅ Complete |
+| 5. Strudel REPL embed | Piano roll + live coding alongside the dashboard | ✅ Complete |
+| 6. Audience phone UI | Mobile buttons with guardrails | ✅ Complete |
 
-### Recent Enhancements
-
-- **Expanded Sample Banks:** Four pad banks; the 16th pad cycles through them on both the UI and MIDI controllers.
-  - **Lines and Effects (banks 1–2):** up to 30 assignable one-shot samples.
-    - **On startup:** each bank fills with the newest renamed recordings of its own type (recorded as Lines or Effects), and any space left is filled with other renamed recordings, newest first. Samples still carrying a default name like `audience_lead_1789044106422` are skipped as likely failed takes.
-    - **New recordings:** recording a new sample as **Lines** or **Effects** puts it straight onto pad 1 of that bank. The others move down one pad, and the one on pad 15 drops off. Rename a take to keep it in the bank after a reload, since unrenamed takes are left out at startup.
-  - **Notes (bank 3):** pads 1–13 play the notes of the current chord, low to high, on a melody instrument. Pad 14 picks the chord. Pad 15 switches to a random melody instrument.
-  - **Sample Notes (bank 4):** the same chord notes, played by pitch-shifting a recorded sample (lower pads slower and deeper, higher pads faster and brighter). Pad 14 picks the chord. Pad 15 cycles through the renamed recorded samples.
-  - **Pad 14 (chord) in Notes and Sample Notes:** each press steps through **Auto**, then each chord in the current key (e.g. Cm7, Fm7, Gm7, Bb7, EbM7, AbM7 in C minor), then back to Auto. On Auto, the pads follow the chord the music is playing (or the progression's first chord when stopped). On a chosen chord, they stay on it, shown as "(chosen)" in the bank title. Both banks share the choice. If the key changes, a chosen chord that's no longer in the key returns to Auto.
-  - **Turning banks on and off:** in the dashboard's pad panel, untick a bank's checkbox to leave it out. Pad 16 then skips it, for example only switching between Lines and Effects. Turning off the bank you're on moves to the next one that's on, and at least one bank always stays on. The choice is remembered in that browser across reloads.
-- **Enhanced Audience Controls:** Updated the mobile browser controls to display the assigned sample filename on each pad. Added an info bar to provide feedback on recent actions (e.g., rate limit cooldowns and effect changes).
-- **Improved Regenerate All:** Enhanced the "Regenerate all" and "New Melody/Bass" dashboard buttons to also randomize instruments for each track, chord style, progression length, scale/mode, and note density. Added random recorded sample buttons (🎙️) to the instruments section.
-- **Refined Transpose Controls:** Removed global transpose (whole song up/down) from the dashboard and MIDI mapping. Modified the "Track Pitch" controls to shift up/down by two steps at a time.
-- **Robust Sample State Management:** Improved the workflow for saving, trimming, ADSR, and renaming samples. Renames now immediately reflect across the UI, seamlessly updating active track and pad assignments without dropping a beat or requiring a browser refresh.
 ---
 
 ## Licensing
